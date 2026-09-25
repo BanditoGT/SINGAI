@@ -19,6 +19,7 @@ for (const [name, definition] of Object.entries({
   weekly_goal: 'INTEGER NOT NULL DEFAULT 5', experience_level: "TEXT NOT NULL DEFAULT 'principiante'",
   preferred_category: "TEXT NOT NULL DEFAULT 'abecedario'", bio: "TEXT NOT NULL DEFAULT ''",
   autoplay_videos: 'INTEGER NOT NULL DEFAULT 1'
+  , hearts: 'INTEGER NOT NULL DEFAULT 5', hearts_blocked_until: 'TEXT'
 })) if (!profileColumns.has(name)) db.exec(`ALTER TABLE profiles ADD COLUMN ${name} ${definition}`);
 const app = express(); app.use(express.json({ limit: '32kb' }));
 app.use('/internal', (req, res, next) => req.headers['x-service-key'] === serviceKey ? next() : res.status(403).json({ error: 'Acceso interno denegado.' }));
@@ -36,7 +37,7 @@ const normalizeStreak = row => {
   if (streak !== row.streak) db.prepare('UPDATE profiles SET streak=? WHERE user_id=?').run(streak, row.user_id);
   return { ...row, streak };
 };
-const shape = row => ({ userId: row.user_id, displayName: row.display_name, avatar: row.avatar, learningGoal: row.learning_goal, dailyGoal: row.daily_goal, weeklyGoal: row.weekly_goal, experienceLevel: row.experience_level, preferredCategory: row.preferred_category, bio: row.bio, autoplayVideos: Boolean(row.autoplay_videos), xp: row.xp, streak: row.streak, longestStreak: row.longest_streak, lastActivity: row.last_activity });
+const shape = row => ({ userId: row.user_id, displayName: row.display_name, avatar: row.avatar, learningGoal: row.learning_goal, dailyGoal: row.daily_goal, weeklyGoal: row.weekly_goal, experienceLevel: row.experience_level, preferredCategory: row.preferred_category, bio: row.bio, autoplayVideos: Boolean(row.autoplay_videos), xp: row.xp, streak: row.streak, longestStreak: row.longest_streak, lastActivity: row.last_activity, hearts: row.hearts ?? 5, heartsBlockedUntil: row.hearts_blocked_until || null });
 
 app.get('/health', (_req, res) => res.json({ service: 'profile', status: 'ok' }));
 app.post('/internal/profiles', (req, res) => {
@@ -78,5 +79,18 @@ app.post('/internal/progress/complete', (req, res) => {
   if (profile.last_activity !== currentDay) streak = profile.last_activity && daysBetween(profile.last_activity, currentDay) === 1 ? streak + 1 : 1;
   db.prepare('UPDATE profiles SET xp=xp+?,streak=?,longest_streak=MAX(longest_streak,?),last_activity=? WHERE user_id=?').run(existing ? 2 : xpEarned, streak, streak, currentDay, userId);
   res.json({ progress: shape(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(userId)), firstCompletion: !existing });
+});
+app.post('/internal/progress/mistake', (req, res) => {
+  const userId = uid(req); const row = db.prepare('SELECT * FROM profiles WHERE user_id=?').get(userId);
+  if (!row) return res.status(404).json({ error: 'Perfil no encontrado.' });
+  const blockedUntil = row.hearts_blocked_until ? new Date(row.hearts_blocked_until).getTime() : 0;
+  if (blockedUntil > Date.now()) return res.json({ progress: shape(row), vidas: 0, bloqueado: true, bloqueadoHasta: row.hearts_blocked_until, xpPerdida: 0 });
+  const available = blockedUntil ? 5 : Math.max(0, Math.min(5, Number(row.hearts ?? 5)));
+  const hearts = Math.max(0, available - 1); const exhausted = hearts === 0;
+  const xp = exhausted ? Math.max(0, Number(row.xp || 0) - 25) : Number(row.xp || 0);
+  const until = exhausted ? new Date(Date.now() + 10 * 60000).toISOString() : null;
+  db.prepare('UPDATE profiles SET hearts=?,hearts_blocked_until=?,xp=? WHERE user_id=?').run(hearts, until, xp, userId);
+  const updated = db.prepare('SELECT * FROM profiles WHERE user_id=?').get(userId);
+  res.json({ progress: shape(updated), vidas: hearts, bloqueado: exhausted, bloqueadoHasta: until, xpPerdida: exhausted ? Number(row.xp || 0) - xp : 0 });
 });
 app.listen(port, () => console.log(`Profile service en http://localhost:${port}`));

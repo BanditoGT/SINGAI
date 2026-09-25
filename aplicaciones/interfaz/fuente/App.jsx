@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { api, MEDIA_URL, session } from './api.js';
+import { api, MEDIA_URL, session, securityMode } from './api.js';
 import { crearSecuenciaTraduccion } from './traductor.js';
 import { estadoRacha, estadoVidas, listarRangos, obtenerRango, seCompletoHoy, VIDAS_MAXIMAS } from './progreso.js';
 import { ArrowLeft, ArrowRight, Award, Bell, BookOpen, CalendarDays, Check, ChevronRight, CircleUserRound, Crown, Eye, EyeOff, Flame, Heart, Home, Languages, Library, LockKeyhole, LogOut, Mail, Medal, Menu, Mic, Pause, Play, Search, Settings, ShieldCheck, Sparkles, Star, Target, Trophy, UserPlus, Users, Volume2, X, Zap } from 'lucide-react';
@@ -52,6 +52,7 @@ function SignVideo({ src, autoplay = true, loop = false, onEnded }) {
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState('login'); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '', learningGoal: 'comunicarme' });
+  const [challenge, setChallenge] = useState(''); const [code, setCode] = useState('');
   const update = e => setForm({ ...form, [e.target.name]: e.target.value });
   const submit = async e => {
     e.preventDefault(); setBusy(true); setError(''); setMessage('');
@@ -59,29 +60,36 @@ function AuthScreen({ onAuth }) {
       if (mode === 'forgot') {
         const result = await api('/auth/forgot-password', { method: 'POST', body: { email: form.email } }); setMessage(result.message); return;
       }
+      if (mode === 'code') {
+        const result = await api('/auth/login/code', { method: 'POST', body: { challenge, code } });
+        session.token = result.token; onAuth(result.user); return;
+      }
       const result = await api(`/auth/${mode}`, { method: 'POST', body: form });
       if (result.requiresVerification) { setMessage(result.message); setMode('verify-sent'); return; }
+      if (result.requiresCode) { setChallenge(result.challenge); setMessage(result.message); setMode('code'); return; }
       session.token = result.token; onAuth(result.user);
     } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
   return <div className="auth-shell"><main className="auth-panel"><div className="auth-card">
       <div className="auth-brand"><Logo/><p>Aprende lengua de señas a tu ritmo</p></div>
       {mode === 'verify-sent' ? <div className="verify-sent"><div className="verify-icon"><Mail/></div><span className="eyebrow">ACTIVA TU CUENTA</span><h2>Revisa tu correo</h2><p className="muted">Enviamos un enlace de verificación a <strong>{form.email}</strong>. Debes abrirlo antes de poder iniciar sesión.</p><Notice text={message} type="success"/><Button onClick={() => {setMode('login');setMessage('')}}>Volver al inicio</Button></div> : <>
-      <span className="eyebrow">{mode === 'register' ? 'EMPIEZA HOY' : mode === 'forgot' ? 'RECUPERA TU CUENTA' : 'BIENVENIDO A SINGAI'}</span>
-      <h2>{mode === 'register' ? 'Crea tu perfil' : mode === 'forgot' ? 'Cambia tu contraseña' : 'Comienza tu aprendizaje'}</h2>
-      <p className="muted">{mode === 'register' ? 'Tu progreso estará siempre contigo.' : mode === 'forgot' ? 'Recibirás un enlace para elegir una nueva contraseña.' : 'Inicia sesión o crea una cuenta para comenzar.'}</p>
-      {mode === 'login' && <div className="auth-security"><ShieldCheck/><span><strong>Acceso protegido por Firebase</strong><small>Contraseña, correo verificado y sesión privada del navegador.</small></span></div>}
+      <span className="eyebrow">{mode === 'register' ? 'EMPIEZA HOY' : mode === 'forgot' ? 'RECUPERA TU CUENTA' : mode === 'code' ? 'SEGUNDO PASO' : 'BIENVENIDO A SINGAI'}</span>
+      <h2>{mode === 'register' ? 'Crea tu perfil' : mode === 'forgot' ? 'Cambia tu contraseña' : mode === 'code' ? 'Confirma que eres tú' : 'Comienza tu aprendizaje'}</h2>
+      <p className="muted">{mode === 'register' ? 'Tu progreso estará siempre contigo.' : mode === 'forgot' ? 'Recibirás un enlace para elegir una nueva contraseña.' : mode === 'code' ? <>Escribe el código enviado a <strong>{form.email}</strong>.</> : 'Inicia sesión o crea una cuenta para comenzar.'}</p>
+      {mode === 'login' && <div className="auth-security"><ShieldCheck/><span><strong>{securityMode === 'codigo-correo' ? 'Acceso con doble comprobación' : 'Acceso protegido por Firebase'}</strong><small>{securityMode === 'codigo-correo' ? 'Contraseña y código personal enviado a tu correo.' : 'Contraseña, correo verificado y sesión privada del navegador.'}</small></span></div>}
       <form onSubmit={submit}>
         {mode === 'register' && <label>Tu nombre<div className="input-wrap"><CircleUserRound/><input name="name" value={form.name} onChange={update} placeholder="¿Cómo te llamas?" autoComplete="name" required/></div></label>}
-        <label>Correo electrónico<div className="input-wrap"><Mail/><input name="email" type="email" value={form.email} onChange={update} placeholder="tu@correo.com" autoComplete="email" required/></div></label>
+        {mode !== 'code' && <label>Correo electrónico<div className="input-wrap"><Mail/><input name="email" type="email" value={form.email} onChange={update} placeholder="tu@correo.com" autoComplete="email" required/></div></label>}
         {(mode === 'login' || mode === 'register') && <label>Contraseña<PasswordField value={form.password} onChange={e => setForm({...form, password: e.target.value})} autoComplete={mode === 'login' ? 'current-password' : 'new-password'}/></label>}
+        {mode === 'code' && <><label>Código de seguridad<div className="input-wrap code-input"><ShieldCheck/><input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" pattern="\d{6}" required autoFocus/></div></label><p className="spam-help">Puede tardar un momento. Si no aparece en tu bandeja principal, revisa con calma Spam o Correo no deseado.</p></>}
         {mode === 'register' && <label>Quiero aprender para<select name="learningGoal" value={form.learningGoal} onChange={update}><option value="comunicarme">Comunicarme mejor</option><option value="familia">Hablar con mi familia</option><option value="trabajo">Usarlo en mi trabajo</option><option value="curiosidad">Aprender algo nuevo</option></select></label>}
         <Notice text={error}/><Notice text={message} type="success"/>
-        <Button disabled={busy}>{busy ? 'Un momento…' : mode === 'register' ? 'Crear cuenta y verificar correo' : mode === 'login' ? 'Entrar a SingAI' : 'Enviar enlace'}<ArrowRight/></Button>
+        <Button disabled={busy}>{busy ? 'Un momento…' : mode === 'register' ? 'Crear cuenta y verificar correo' : mode === 'login' ? 'Entrar a SingAI' : mode === 'code' ? 'Verificar y entrar' : 'Enviar enlace'}<ArrowRight/></Button>
       </form>
       {mode === 'login' && <div className="auth-links"><button onClick={() => setMode('forgot')}>Olvidé mi contraseña</button></div>}
-      <div className="auth-switch">{mode === 'register' ? <>¿Ya tienes cuenta? <button onClick={() => setMode('login')}>Inicia sesión</button></> : <>¿Primera vez aquí? <button onClick={() => setMode('register')}>Crea una cuenta</button></>}</div>
+      {(mode === 'login' || mode === 'register') && <div className="auth-switch">{mode === 'register' ? <>¿Ya tienes cuenta? <button onClick={() => setMode('login')}>Inicia sesión</button></> : <>¿Primera vez aquí? <button onClick={() => setMode('register')}>Crea una cuenta</button></>}</div>}
       {mode === 'forgot' && <button className="back-link" onClick={() => setMode('login')}><ArrowLeft/> Volver al inicio</button>}
+      {mode === 'code' && <button className="back-link" onClick={() => {setMode('login');setCode('');setChallenge('');setMessage('')}}><ArrowLeft/> Usar otra cuenta</button>}
       </>}
     </div></main>
   </div>;
@@ -91,6 +99,15 @@ function LinkAction() {
   const params = new URLSearchParams(location.search); const token = params.get('token') || params.get('oobCode') || ''; const [password, setPassword] = useState(''); const [state, setState] = useState({ busy: false, error: '', done: '' });
   const reset = async e => { e.preventDefault(); setState({ busy: true, error: '', done: '' }); try { const r = await api('/auth/reset-password', { method: 'POST', body: { token, password } }); setState({ busy: false, error: '', done: r.message }); } catch (err) { setState({ busy: false, error: err.message, done: '' }); } };
   return <div className="simple-action"><Logo/><div className="auth-card"><span className="eyebrow">SEGURIDAD</span><h1>Nueva contraseña</h1><p className="muted">Elige una contraseña de al menos 8 caracteres.</p><form onSubmit={reset}><label>Contraseña<PasswordField value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password"/></label><Notice text={state.error}/><Notice text={state.done} type="success"/><Button disabled={state.busy}>{state.busy ? 'Guardando…' : 'Guardar contraseña'}</Button></form>{state.done && <button className="back-link" onClick={() => location.assign('/')}>Ir al inicio</button>}</div></div>;
+}
+
+function VerifyAction() {
+  const token = new URLSearchParams(location.search).get('token') || '';
+  const [state, setState] = useState({ busy: true, error: '', done: '' });
+  useEffect(() => { api('/auth/magic/verify', { method: 'POST', body: { token } })
+    .then(() => setState({ busy: false, error: '', done: 'Correo verificado correctamente. Ya puedes iniciar sesión.' }))
+    .catch(error => setState({ busy: false, error: error.message, done: '' })); }, [token]);
+  return <div className="simple-action"><Logo/><div className="auth-card"><span className="eyebrow">SEGURIDAD</span><h1>Verificación de correo</h1><p className="muted">{state.busy ? 'Comprobando tu enlace…' : 'Protegemos tu cuenta antes de permitir el acceso.'}</p><Notice text={state.error}/><Notice text={state.done} type="success"/><button className="back-link" onClick={() => location.assign('/')}><ArrowLeft/> Ir al inicio</button></div></div>;
 }
 
 const navItems = [{ id: 'inicio', label: 'Inicio', Icon: Home }, { id: 'aprender', label: 'Aprender', Icon: BookOpen }, { id: 'diccionario', label: 'Diccionario', Icon: Library }, { id: 'traductor', label: 'Traductor', Icon: Languages }, { id: 'rangos', label: 'Rangos', Icon: Award }, { id: 'amigos', label: 'Amigos', Icon: Users }, { id: 'perfil', label: 'Mi perfil', Icon: CircleUserRound }];
@@ -111,11 +128,12 @@ function Welcome({ profile, catalog, progress, startLesson, setPage }) {
   const rank = obtenerRango(profile.xp);
   const next = catalog.units.flatMap(u => u.lessons.map(l => ({...l, unit: u}))).find(l => !progress.completedLessonIds?.includes(l.id));
   const currentDay = guatemalaDay();
+  const streak = estadoRacha(profile, currentDay);
   const completedToday = progress.lessons?.some(item => seCompletoHoy(item.completedAt, currentDay));
   return <div className="page enter"><section className="welcome"><div><span className="eyebrow">TU CAMINO DE APRENDIZAJE</span><h1>¡Hola, {profile.displayName}! <span>👋🏻</span></h1><p>Hoy es un buen día para aprender una nueva forma de conectar.</p></div><div className="date-pill"><CalendarDays/><div><small>HOY</small><strong>{new Intl.DateTimeFormat('es-GT',{weekday:'long',day:'numeric',month:'short'}).format(new Date())}</strong></div></div></section>
     <section className="hero-card"><div className="hero-copy"><span className="mini-tag"><Sparkles/> {complete ? 'CONTINÚA DONDE QUEDASTE' : 'TU PRIMER PASO'}</span><h2>{next ? next.unit.title : '¡Completaste todo el camino!'}</h2><p>{next ? `${next.title} · ${next.description}` : 'Puedes repetir cualquier lección para fortalecer tu memoria.'}</p><div className="hero-progress"><div><span>Progreso total</span><strong>{pct}%</strong></div><div className="track"><i style={{width:`${pct}%`}}/></div></div>{next && <Button onClick={() => startLesson(next)}><Play/> {complete ? 'Continuar lección' : 'Comencemos'}</Button>}</div><div className="hero-visual"><div className="bubble back">✦</div><div className="bubble main">🤟🏻</div><div className="bubble tiny">✓</div></div></section>
     <div className="section-title"><div><span className="eyebrow">TU PROGRESO</span><h2>Esta semana</h2></div><button onClick={() => setPage('aprender')}>Ver ruta <ChevronRight/></button></div>
-    <section className="metrics"><article><div className="metric-icon orange"><Flame/></div><div><strong>{profile.streak || 0}</strong><span>Días de racha</span></div><small>Meta: 7</small></article><article><div className="metric-icon violet"><Award/></div><div><strong className="rank-name">{rank.nombre}</strong><span>{rank.xp} XP acumulados</span></div><small>{rank.esMaximo ? 'Rango máximo' : `${rank.xpSiguiente - rank.xp} XP para subir`}</small></article><article><div className="metric-icon teal"><Trophy/></div><div><strong>{complete}</strong><span>Lecciones listas</span></div><small>de {total}</small></article></section>
+    <section className="metrics"><article><div className="metric-icon orange"><Flame/></div><div><strong>{streak.racha}</strong><span>Días de racha</span></div><small>{streak.mensaje}</small></article><article><div className="metric-icon violet"><Award/></div><div><strong className="rank-name">{rank.nombre}</strong><span>{rank.xp} XP acumulados</span></div><small>{rank.esMaximo ? 'Rango máximo' : `${rank.xpSiguiente - rank.xp} XP para subir`}</small></article><article><div className="metric-icon teal"><Trophy/></div><div><strong>{complete}</strong><span>Lecciones listas</span></div><small>de {total}</small></article></section>
     <section className="daily-card"><div><span className="eyebrow">OBJETIVO DIARIO</span><h2>Una lección al día hace la diferencia</h2><p>Las sesiones cortas y constantes ayudan a recordar mejor cada seña.</p></div><div className="goal-ring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="32"/><circle className="fill" cx="40" cy="40" r="32" strokeDasharray="201" strokeDashoffset={completedToday ? 0 : 201}/></svg><span>{completedToday ? <Check/> : '0/1'}</span></div></section>
   </div>;
 }
@@ -206,6 +224,7 @@ export default function App() {
   const complete=async(lessonId,score)=>{const r=await api('/progress/complete',{method:'POST',body:{lessonId,score}});setProfile(r.progress);syncOwnSocial(r.progress);const fresh=await api('/progress');setProgress(fresh);return r};
   const mistake=async()=>{const r=await api('/progress/mistake',{method:'POST'});setProfile(r.progress);syncOwnSocial(r.progress);return r};
   if(location.pathname==='/restablecer') return <LinkAction/>;
+  if(location.pathname==='/acceso') return <VerifyAction/>;
   if(status==='loading') return <Spinner/>; if(status==='guest') return <AuthScreen onAuth={onAuth}/>; if(!catalog||!profile) return <Spinner/>;
   const saveProfile=updated=>{setProfile(updated);setSocial(current=>({...current,self:current.self?{...current.self,displayName:updated.displayName,avatar:updated.avatar}:current.self}))};
   const pages={inicio:<Welcome profile={profile} catalog={catalog} progress={progress} startLesson={setLesson} setPage={setPage}/>,aprender:<Learn catalog={catalog} progress={progress} startLesson={setLesson}/>,diccionario:<Dictionary catalog={catalog} autoplay={profile.autoplayVideos}/>,traductor:<Translator catalog={catalog} autoplay={profile.autoplayVideos}/>,rangos:<Ranks profile={profile}/>,amigos:<Friends social={social} onRefresh={refreshSocial}/>,perfil:<Profile profile={profile} user={user} onSaved={saveProfile}/>};

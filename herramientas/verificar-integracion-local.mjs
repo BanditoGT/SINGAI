@@ -11,16 +11,16 @@ const source = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sandbox = mkdtempSync(join(tmpdir(), 'singai-integration-'));
 const linkType = process.platform === 'win32' ? 'junction' : 'dir';
 const basePort = 43100 + Math.floor(Math.random() * 1000);
-const ports = { core: basePort, profile: basePort + 1, mail: basePort + 2 };
+const ports = { core: basePort, profile: basePort + 1, mail: basePort + 2, security: basePort + 3, audit: basePort + 4 };
 
 mkdirSync(join(sandbox, 'servicios'), { recursive: true });
 mkdirSync(join(sandbox, 'datos'), { recursive: true });
-for (const service of ['nucleo', 'perfil', 'correo']) {
+for (const service of ['nucleo', 'perfil', 'correo', 'seguridad', 'auditoria']) {
   const target = join(sandbox, 'servicios', service);
   mkdirSync(target, { recursive: true });
   cpSync(join(source, 'servicios', service, 'codigo'), join(target, 'codigo'), { recursive: true });
   cpSync(join(source, 'servicios', service, 'package.json'), join(target, 'package.json'));
-  symlinkSync(join(source, 'servicios', service, 'node_modules'), join(target, 'node_modules'), linkType);
+  if (existsSync(join(source, 'servicios', service, 'node_modules'))) symlinkSync(join(source, 'servicios', service, 'node_modules'), join(target, 'node_modules'), linkType);
 }
 cpSync(join(source, 'datos', 'catalog.json'), join(sandbox, 'datos', 'catalog.json'));
 symlinkSync(join(source, 'node_modules'), join(sandbox, 'node_modules'), linkType);
@@ -30,8 +30,12 @@ const env = {
   CORE_PORT: String(ports.core),
   PROFILE_PORT: String(ports.profile),
   MAIL_PORT: String(ports.mail),
+  SECURITY_PORT: String(ports.security),
+  AUDIT_PORT: String(ports.audit),
   PROFILE_URL: `http://127.0.0.1:${ports.profile}`,
   MAIL_URL: `http://127.0.0.1:${ports.mail}`,
+  SECURITY_URL: `http://127.0.0.1:${ports.security}`,
+  AUDIT_URL: `http://127.0.0.1:${ports.audit}`,
   PUBLIC_APP_URL: 'http://127.0.0.1:5173',
   WEB_ORIGIN: 'http://127.0.0.1:5173',
   JWT_SECRET: 'integration-only-secret-not-for-deployment',
@@ -82,17 +86,23 @@ function json(body, headers = {}) {
 try {
   start('servicios/perfil/codigo/server.mjs');
   start('servicios/correo/codigo/server.mjs');
+  start('servicios/seguridad/codigo/server.mjs');
+  start('servicios/auditoria/codigo/server.mjs');
   start('servicios/nucleo/codigo/server.mjs');
   await Promise.all([
     waitFor(`http://127.0.0.1:${ports.core}/api/health`),
     waitFor(`http://127.0.0.1:${ports.profile}/health`),
-    waitFor(`http://127.0.0.1:${ports.mail}/health`)
+    waitFor(`http://127.0.0.1:${ports.mail}/health`),
+    waitFor(`http://127.0.0.1:${ports.security}/health`),
+    waitFor(`http://127.0.0.1:${ports.audit}/health`)
   ]);
 
   const health = {
     core: await request(`http://127.0.0.1:${ports.core}/api/health`),
     profile: await request(`http://127.0.0.1:${ports.profile}/health`),
-    mail: await request(`http://127.0.0.1:${ports.mail}/health`)
+    mail: await request(`http://127.0.0.1:${ports.mail}/health`),
+    security: await request(`http://127.0.0.1:${ports.security}/health`),
+    audit: await request(`http://127.0.0.1:${ports.audit}/health`)
   };
   const catalog = await request(`http://127.0.0.1:${ports.core}/api/catalog`);
   const email = `probe-${Date.now()}@example.test`;
@@ -110,7 +120,16 @@ try {
     method: 'POST',
     ...json({ token: actionToken })
   });
-  const bearer = verify.body.token;
+  const login = await request(`http://127.0.0.1:${ports.core}/api/auth/login`, {
+    method: 'POST', ...json({ email, password: 'ClavePrueba2026' })
+  });
+  const codeFile = readdirSync(outbox).filter(file => file.includes('-codigo-')).sort().at(-1);
+  const codeHtml = codeFile ? readFileSync(join(outbox, codeFile), 'utf8') : '';
+  const loginCode = />(\d{6})<\//.exec(codeHtml)?.[1];
+  const codeVerify = await request(`http://127.0.0.1:${ports.core}/api/auth/login/code`, {
+    method: 'POST', ...json({ challenge: login.body.challenge, code: loginCode })
+  });
+  const bearer = codeVerify.body.token;
   const profile = await request(`http://127.0.0.1:${ports.core}/api/profile`, {
     headers: { authorization: `Bearer ${bearer}` }
   });
@@ -144,6 +163,12 @@ try {
       knownIssue: verify.body.user?.verified === false
         ? 'La respuesta reutiliza la fila anterior al UPDATE; la cuenta sí queda verificada.'
         : null
+    },
+    secondFactor: {
+      requested: login.body.requiresCode,
+      delivery: login.body.delivery,
+      verified: codeVerify.status === 200,
+      tokenReturned: Boolean(bearer)
     },
     profile: {
       status: profile.status,

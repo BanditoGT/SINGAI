@@ -24,6 +24,8 @@ const auth = getAuth(firebaseApp);
 auth.languageCode = 'es';
 const db = getFirestore(firebaseApp);
 const persistenceReady = setPersistence(auth, browserSessionPersistence).catch(() => {});
+const USE_LOCAL_SERVICES = import.meta.env.VITE_USE_LOCAL_SERVICES === 'true';
+export const securityMode = USE_LOCAL_SERVICES ? 'codigo-correo' : 'firebase-gratuito';
 
 export const MEDIA_URL = '';
 const SESSION_MARKER = 'singai_firebase_session';
@@ -32,10 +34,21 @@ const VERIFICATION_COOLDOWN_MS = 2 * 60 * 1000;
 export const session = {
   get token() { return sessionStorage.getItem(SESSION_MARKER); },
   set token(value) {
-    value ? sessionStorage.setItem(SESSION_MARKER, 'active') : sessionStorage.removeItem(SESSION_MARKER);
-    if (!value) signOut(auth).catch(() => {});
+    value ? sessionStorage.setItem(SESSION_MARKER, String(value)) : sessionStorage.removeItem(SESSION_MARKER);
+    if (!value && !USE_LOCAL_SERVICES) signOut(auth).catch(() => {});
   }
 };
+
+async function localApi(path, options = {}) {
+  const response = await fetch(`/api${path}`, {
+    method: options.method || 'GET',
+    headers: { 'content-type': 'application/json', ...(session.token ? { authorization: `Bearer ${session.token}` } : {}) },
+    body: (options.method || 'GET') === 'GET' ? undefined : JSON.stringify(options.body || {})
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || 'No fue posible conectar con SingAI.');
+  return payload;
+}
 
 const cleanEmail = value => String(value || '').trim().toLowerCase();
 const publicUser = user => ({ id: user.uid, email: user.email, verified: user.emailVerified, createdAt: user.metadata.creationTime, lastSignInAt: user.metadata.lastSignInTime });
@@ -253,6 +266,7 @@ function normalizarPerfil(profile) {
 }
 
 export async function api(path, options = {}) {
+  if (USE_LOCAL_SERVICES) return localApi(path, options);
   const method = options.method || 'GET'; const body = options.body || {};
   if (path.startsWith('/auth/')) return authApi(path, body);
   if (path.startsWith('/social')) return socialApi(path, method, body);

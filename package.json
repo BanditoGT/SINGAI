@@ -7,12 +7,12 @@
   "scripts": {
     "catalog": "node herramientas/construir-catalogo.mjs",
     "reset:data": "node herramientas/reiniciar-datos-locales.mjs",
-    "dev": "concurrently -n INTERFAZ,NUCLEO,PERFIL,CORREO -c cyan,green,magenta,yellow \"pnpm --filter @singai/interfaz dev\" \"pnpm --filter @singai/nucleo dev\" \"pnpm --filter @singai/perfil dev\" \"pnpm --filter @singai/correo dev\"",
+    "dev": "concurrently -n INTERFAZ,NUCLEO,PERFIL,CORREO,SEGURIDAD,AUDITORIA -c cyan,green,magenta,yellow,blue,white \"pnpm --filter @singai/interfaz dev\" \"pnpm --filter @singai/nucleo dev\" \"pnpm --filter @singai/perfil dev\" \"pnpm --filter @singai/correo dev\" \"pnpm --filter @singai/seguridad dev\" \"pnpm --filter @singai/auditoria dev\"",
     "build": "pnpm --filter @singai/interfaz build",
     "build:firebase": "pnpm build && node herramientas/preparar-firebase.mjs",
     "test": "node --test pruebas/*.test.mjs",
     "evidence:integration": "node herramientas/verificar-integracion-local.mjs",
-    "start": "concurrently -n NUCLEO,PERFIL,CORREO -c green,magenta,yellow \"pnpm --filter @singai/nucleo start\" \"pnpm --filter @singai/perfil start\" \"pnpm --filter @singai/correo start\""
+    "start": "concurrently -n NUCLEO,PERFIL,CORREO,SEGURIDAD,AUDITORIA -c green,magenta,yellow,blue,white \"pnpm --filter @singai/nucleo start\" \"pnpm --filter @singai/perfil start\" \"pnpm --filter @singai/correo start\" \"pnpm --filter @singai/seguridad start\" \"pnpm --filter @singai/auditoria start\""
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

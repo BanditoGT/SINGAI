@@ -26,14 +26,18 @@ APP_HEALTH_URL = "http://127.0.0.1:5173"
 SERVICES = {
     "PERFIL": ("servicios/perfil/codigo/server.mjs", "http://localhost:4101/health"),
     "CORREO": ("servicios/correo/codigo/server.mjs", "http://localhost:4102/health"),
+    "SEGURIDAD": ("servicios/seguridad/codigo/server.mjs", "http://localhost:4103/health"),
+    "AUDITORIA": ("servicios/auditoria/codigo/server.mjs", "http://localhost:4104/health"),
     "API": ("servicios/nucleo/codigo/server.mjs", "http://localhost:4100/api/health"),
 }
-REQUIRED_PORTS = (4100, 4101, 4102, 5173)
+REQUIRED_PORTS = (4100, 4101, 4102, 4103, 4104, 5173)
 COLORS = {
     "WEB": "\033[96m",
     "API": "\033[92m",
     "PERFIL": "\033[95m",
     "CORREO": "\033[93m",
+    "SEGURIDAD": "\033[96m",
+    "AUDITORIA": "\033[94m",
     "INFO": "\033[94m",
     "ERROR": "\033[91m",
 }
@@ -90,6 +94,8 @@ def dependencies_ready() -> bool:
         ROOT / "servicios/nucleo/node_modules/express",
         ROOT / "servicios/perfil/node_modules/express",
         ROOT / "servicios/correo/node_modules/nodemailer",
+        ROOT / "servicios/seguridad/node_modules/express",
+        ROOT / "servicios/auditoria/node_modules/express",
     ]
     return all(path.exists() for path in required)
 
@@ -383,6 +389,7 @@ def main() -> int:
         environment = os.environ.copy()
         environment.setdefault("NODE_ENV", "development")
         environment.setdefault("NO_COLOR", "1")
+        environment.setdefault("VITE_USE_LOCAL_SERVICES", "true")
 
         for name, (script, health) in SERVICES.items():
             start_and_confirm(

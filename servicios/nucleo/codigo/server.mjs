@@ -16,6 +16,8 @@ const jwtSecret = process.env.JWT_SECRET || 'senalab-development-secret-change-m
 const serviceKey = process.env.SERVICE_KEY || 'senalab-internal-dev';
 const profileUrl = process.env.PROFILE_URL || 'http://localhost:4101';
 const mailUrl = process.env.MAIL_URL || 'http://localhost:4102';
+const securityUrl = process.env.SECURITY_URL || 'http://localhost:4103';
+const auditUrl = process.env.AUDIT_URL || 'http://localhost:4104';
 const publicAppUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173';
 
 const db = new DatabaseSync(join(root, 'datos', 'auth.db'));
@@ -46,6 +48,9 @@ async function internalPost(url, body) {
   const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-service-key': serviceKey }, body: JSON.stringify(body) });
   if (!response.ok) throw new Error(`Servicio no disponible (${response.status})`);
   return response.json();
+}
+function audit(type, outcome, userId, req) {
+  internalPost(`${auditUrl}/internal/events`, { type, outcome, userId, ipHint: tokenDigest(req.ip || '').slice(0, 16) }).catch(error => console.error(`Auditoría: ${error.message}`));
 }
 async function sendAccountLink(user, type, name = '') {
   const raw = randomToken();
@@ -100,7 +105,10 @@ app.post('/api/auth/register', async (req, res) => {
 });
 app.post('/api/auth/login', async (req, res) => {
   const user = findUser(req.body.email);
-  if (!user || !user.password_hash || !checkPassword(String(req.body.password || ''), user.password_hash)) return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
+  if (!user || !user.password_hash || !checkPassword(String(req.body.password || ''), user.password_hash)) {
+    audit('login_password', 'rejected', user?.id, req);
+    return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
+  }
   if (!user.verified) {
     let delivery = 'unavailable';
     try { delivery = (await sendAccountLink(user, 'verify')).delivery; } catch (error) { console.error(error.message); }
@@ -109,9 +117,30 @@ app.post('/api/auth/login', async (req, res) => {
       : delivery === 'local-outbox'
         ? 'Tu cuenta aún no está verificada. El correo está en modo local: abre el enlace más reciente de datos/bandeja-salida o configura un remitente desde main.py.'
         : 'Tu cuenta aún no está verificada y no pudimos entregar el enlace. Revisa la configuración de correo al iniciar SingAI.';
+    audit('login_unverified', 'rejected', user.id, req);
     return res.status(403).json({ error, delivery });
   }
-  res.json({ token: signToken({ sub: user.id, email: user.email }, jwtSecret), user: publicUser(user) });
+  try {
+    const challenge = await internalPost(`${securityUrl}/internal/challenges`, { userId: user.id, email: user.email, name: user.email.split('@')[0] });
+    audit('login_code_sent', 'accepted', user.id, req);
+    res.json({ requiresCode: true, email: user.email, ...challenge });
+  } catch (error) {
+    audit('login_code_sent', 'failed', user.id, req);
+    res.status(503).json({ error: 'No pudimos enviar tu código de seguridad. Revisa el servicio de correo e inténtalo nuevamente.' });
+  }
+});
+app.post('/api/auth/login/code', async (req, res) => {
+  try {
+    const verified = await internalPost(`${securityUrl}/internal/challenges/verify`, { challenge: req.body.challenge, code: req.body.code });
+    const user = db.prepare('SELECT * FROM users WHERE id=?').get(verified.userId);
+    if (!user?.verified) return res.status(403).json({ error: 'La cuenta ya no está disponible.' });
+    audit('login_code', 'accepted', user.id, req);
+    res.json({ token: signToken({ sub: user.id, email: user.email, secondFactor: 'email-code' }, jwtSecret), user: publicUser(user) });
+  } catch (error) {
+    audit('login_code', 'rejected', null, req);
+    const status = String(error.message).includes('(429)') ? 429 : 401;
+    res.status(status).json({ error: 'El código es incorrecto, expiró o agotó sus intentos. Inténtalo nuevamente.' });
+  }
 });
 app.get('/api/auth/me', auth, (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id=?').get(req.user.sub);
@@ -138,7 +167,8 @@ app.post('/api/auth/magic/verify', (req, res) => {
   const user = db.prepare("SELECT * FROM users WHERE action_digest=? AND action_type IN ('magic','verify')").get(tokenDigest(String(req.body.token || '')));
   if (!user || new Date(user.action_expires) < new Date()) return res.status(400).json({ error: 'El enlace no es válido o ya expiró.' });
   db.prepare('UPDATE users SET action_digest=NULL,action_type=NULL,action_expires=NULL,verified=1 WHERE id=?').run(user.id);
-  res.json({ token: signToken({ sub: user.id, email: user.email }, jwtSecret), user: publicUser(user) });
+  const updated = db.prepare('SELECT * FROM users WHERE id=?').get(user.id);
+  res.json({ verified: true, user: publicUser(updated) });
 });
 app.post('/api/auth/reset-password', (req, res) => {
   const password = String(req.body.password || '');
@@ -152,6 +182,7 @@ app.get('/api/profile', auth, (req, res) => profileProxy(req, res, '/internal/pr
 app.patch('/api/profile', auth, (req, res) => profileProxy(req, res, '/internal/profile', 'PATCH'));
 app.get('/api/progress', auth, (req, res) => profileProxy(req, res, '/internal/progress'));
 app.post('/api/progress/complete', auth, (req, res) => profileProxy(req, res, '/internal/progress/complete', 'POST'));
+app.post('/api/progress/mistake', auth, (req, res) => profileProxy(req, res, '/internal/progress/mistake', 'POST'));
 
 app.use((err, _req, res, _next) => { console.error(err); res.status(500).json({ error: 'Ocurrió un error inesperado.' }); });
 app.listen(port, () => console.log(`Core API en http://localhost:${port}`));
