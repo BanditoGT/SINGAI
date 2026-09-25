@@ -5,7 +5,7 @@ import {
   signInWithEmailAndPassword, signOut, updateProfile
 } from 'firebase/auth';
 import {
-  doc, getDoc, getDocs, getFirestore, increment, runTransaction,
+  addDoc, doc, getDoc, getDocs, getFirestore, increment, limit, orderBy, runTransaction,
   setDoc, updateDoc, collection, query, where
 } from 'firebase/firestore';
 import { aplicarFallo, calcularRacha, calcularXpGanada, estadoVidas, rachaVigente } from './progreso.js';
@@ -29,14 +29,28 @@ export const securityMode = USE_LOCAL_SERVICES ? 'codigo-correo' : 'firebase-gra
 
 export const MEDIA_URL = '';
 const SESSION_MARKER = 'singai_firebase_session';
+const SESSION_LAST_ACTIVITY = 'singai_session_last_activity';
+const SESSION_MAX_IDLE_MS = 30 * 60 * 1000;
 const VERIFICATION_SENT_AT = 'singai_verification_sent_at';
 const VERIFICATION_COOLDOWN_MS = 2 * 60 * 1000;
 export const session = {
-  get token() { return sessionStorage.getItem(SESSION_MARKER); },
+  get token() {
+    const value = sessionStorage.getItem(SESSION_MARKER);
+    const lastActivity = Number(sessionStorage.getItem(SESSION_LAST_ACTIVITY) || 0);
+    if (value && lastActivity && Date.now() - lastActivity > SESSION_MAX_IDLE_MS) {
+      sessionStorage.removeItem(SESSION_MARKER); sessionStorage.removeItem(SESSION_LAST_ACTIVITY);
+      if (!USE_LOCAL_SERVICES) signOut(auth).catch(() => {});
+      return null;
+    }
+    return value;
+  },
   set token(value) {
-    value ? sessionStorage.setItem(SESSION_MARKER, String(value)) : sessionStorage.removeItem(SESSION_MARKER);
+    if (value) { sessionStorage.setItem(SESSION_MARKER, String(value)); sessionStorage.setItem(SESSION_LAST_ACTIVITY, String(Date.now())); }
+    else { sessionStorage.removeItem(SESSION_MARKER); sessionStorage.removeItem(SESSION_LAST_ACTIVITY); }
     if (!value && !USE_LOCAL_SERVICES) signOut(auth).catch(() => {});
-  }
+  },
+  touch() { if (sessionStorage.getItem(SESSION_MARKER)) sessionStorage.setItem(SESSION_LAST_ACTIVITY, String(Date.now())); },
+  get expiresAt() { const last = Number(sessionStorage.getItem(SESSION_LAST_ACTIVITY) || 0); return last ? new Date(last + SESSION_MAX_IDLE_MS).toISOString() : null; }
 };
 
 async function localApi(path, options = {}) {
@@ -53,6 +67,17 @@ async function localApi(path, options = {}) {
 const cleanEmail = value => String(value || '').trim().toLowerCase();
 const publicUser = user => ({ id: user.uid, email: user.email, verified: user.emailVerified, createdAt: user.metadata.creationTime, lastSignInAt: user.metadata.lastSignInTime });
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Guatemala', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+const deviceSummary = () => {
+  const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  return `${mobile ? 'Teléfono o tableta' : 'Computadora'} · ${navigator.platform || 'Navegador web'}`.slice(0, 100);
+};
+
+async function recordSecurityEvent(user, type = 'login') {
+  await addDoc(collection(db, 'profiles', user.uid, 'securityEvents'), {
+    type, device: deviceSummary(), createdAt: new Date().toISOString()
+  });
+}
 
 async function hashEmail(value) {
   const bytes = new TextEncoder().encode(cleanEmail(value));
@@ -141,6 +166,7 @@ async function authApi(path, body) {
           ? 'Tu cuenta aún no está verificada. Enviamos un nuevo enlace; revisa también Spam o Correo no deseado.'
           : 'Tu cuenta aún no está verificada. Ya enviamos un enlace recientemente; espera dos minutos antes de solicitar otro.');
       }
+      await recordSecurityEvent(credential.user).catch(() => {});
       return { token: 'firebase-session', user: publicUser(credential.user) };
     }
     if (path === '/auth/forgot-password') {
@@ -154,6 +180,13 @@ async function authApi(path, body) {
     }
   } catch (error) { throw new Error(authMessage(error)); }
   throw new Error('Operación de autenticación no disponible.');
+}
+
+async function securityApi(path) {
+  const user = await currentUser();
+  if (path !== '/security/events') throw new Error('Operación de seguridad no disponible.');
+  const snapshot = await getDocs(query(collection(db, 'profiles', user.uid, 'securityEvents'), orderBy('createdAt', 'desc'), limit(8)));
+  return { events: snapshot.docs.map(item => ({ id: item.id, ...item.data() })), expiresAt: session.expiresAt };
 }
 
 async function profileApi(path, method, body) {
@@ -269,6 +302,7 @@ export async function api(path, options = {}) {
   if (USE_LOCAL_SERVICES) return localApi(path, options);
   const method = options.method || 'GET'; const body = options.body || {};
   if (path.startsWith('/auth/')) return authApi(path, body);
+  if (path.startsWith('/security/')) return securityApi(path);
   if (path.startsWith('/social')) return socialApi(path, method, body);
   if (path === '/catalog') {
     const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api, MEDIA_URL, session, securityMode } from './api.js';
 import { crearSecuenciaTraduccion } from './traductor.js';
+import { actividadUltimosDias, calcularLogros } from './logros.js';
 import { estadoRacha, estadoVidas, listarRangos, obtenerRango, seCompletoHoy, VIDAS_MAXIMAS } from './progreso.js';
 import { ArrowLeft, ArrowRight, Award, Bell, BookOpen, CalendarDays, Check, ChevronRight, CircleUserRound, Crown, Eye, EyeOff, Flame, Heart, Home, Languages, Library, LockKeyhole, LogOut, Mail, Medal, Menu, Mic, Pause, Play, Search, Settings, ShieldCheck, Sparkles, Star, Target, Trophy, UserPlus, Users, Volume2, X, Zap } from 'lucide-react';
 
@@ -110,9 +111,10 @@ function VerifyAction() {
   return <div className="simple-action"><Logo/><div className="auth-card"><span className="eyebrow">SEGURIDAD</span><h1>Verificación de correo</h1><p className="muted">{state.busy ? 'Comprobando tu enlace…' : 'Protegemos tu cuenta antes de permitir el acceso.'}</p><Notice text={state.error}/><Notice text={state.done} type="success"/><button className="back-link" onClick={() => location.assign('/')}><ArrowLeft/> Ir al inicio</button></div></div>;
 }
 
-const navItems = [{ id: 'inicio', label: 'Inicio', Icon: Home }, { id: 'aprender', label: 'Aprender', Icon: BookOpen }, { id: 'diccionario', label: 'Diccionario', Icon: Library }, { id: 'traductor', label: 'Traductor', Icon: Languages }, { id: 'rangos', label: 'Rangos', Icon: Award }, { id: 'amigos', label: 'Amigos', Icon: Users }, { id: 'perfil', label: 'Mi perfil', Icon: CircleUserRound }];
+const navItems = [{ id: 'inicio', label: 'Inicio', Icon: Home }, { id: 'aprender', label: 'Aprender', Icon: BookOpen }, { id: 'diccionario', label: 'Diccionario', Icon: Library }, { id: 'traductor', label: 'Traductor', Icon: Languages }, { id: 'rangos', label: 'Rangos', Icon: Award }, { id: 'logros', label: 'Logros', Icon: Trophy }, { id: 'amigos', label: 'Amigos', Icon: Users }, { id: 'seguridad', label: 'Seguridad', Icon: ShieldCheck }, { id: 'perfil', label: 'Mi perfil', Icon: CircleUserRound }];
 function Shell({ user, profile, page, setPage, children, logout, pendingCount = 0 }) {
   const [open, setOpen] = useState(false); const [clock, setClock] = useState(Date.now()); const rank = obtenerRango(profile?.xp); const lifeState = estadoVidas(profile, clock); const streakState = estadoRacha(profile, guatemalaDay());
+  useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 60000); return () => clearInterval(timer); }, []);
   useEffect(() => { if (!profile?.heartsBlockedUntil) return; setClock(Date.now()); const timer = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(timer); }, [profile?.heartsBlockedUntil]);
   const lifeMs = lifeState.bloqueadoHasta ? Math.max(0, new Date(lifeState.bloqueadoHasta).getTime() - clock) : 0;
   const lifeSeconds = Math.ceil(lifeMs / 1000); const lifeCountdown = `${String(Math.floor(lifeSeconds / 60)).padStart(2, '0')}:${String(lifeSeconds % 60).padStart(2, '0')}`;
@@ -134,8 +136,27 @@ function Welcome({ profile, catalog, progress, startLesson, setPage }) {
     <section className="hero-card"><div className="hero-copy"><span className="mini-tag"><Sparkles/> {complete ? 'CONTINÚA DONDE QUEDASTE' : 'TU PRIMER PASO'}</span><h2>{next ? next.unit.title : '¡Completaste todo el camino!'}</h2><p>{next ? `${next.title} · ${next.description}` : 'Puedes repetir cualquier lección para fortalecer tu memoria.'}</p><div className="hero-progress"><div><span>Progreso total</span><strong>{pct}%</strong></div><div className="track"><i style={{width:`${pct}%`}}/></div></div>{next && <Button onClick={() => startLesson(next)}><Play/> {complete ? 'Continuar lección' : 'Comencemos'}</Button>}</div><div className="hero-visual"><div className="bubble back">✦</div><div className="bubble main">🤟🏻</div><div className="bubble tiny">✓</div></div></section>
     <div className="section-title"><div><span className="eyebrow">TU PROGRESO</span><h2>Esta semana</h2></div><button onClick={() => setPage('aprender')}>Ver ruta <ChevronRight/></button></div>
     <section className="metrics"><article><div className="metric-icon orange"><Flame/></div><div><strong>{streak.racha}</strong><span>Días de racha</span></div><small>{streak.mensaje}</small></article><article><div className="metric-icon violet"><Award/></div><div><strong className="rank-name">{rank.nombre}</strong><span>{rank.xp} XP acumulados</span></div><small>{rank.esMaximo ? 'Rango máximo' : `${rank.xpSiguiente - rank.xp} XP para subir`}</small></article><article><div className="metric-icon teal"><Trophy/></div><div><strong>{complete}</strong><span>Lecciones listas</span></div><small>de {total}</small></article></section>
+    <ActivitySummary progress={progress} profile={profile} onOpenAchievements={() => setPage('logros')}/>
     <section className="daily-card"><div><span className="eyebrow">OBJETIVO DIARIO</span><h2>Una lección al día hace la diferencia</h2><p>Las sesiones cortas y constantes ayudan a recordar mejor cada seña.</p></div><div className="goal-ring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="32"/><circle className="fill" cx="40" cy="40" r="32" strokeDasharray="201" strokeDashoffset={completedToday ? 0 : 201}/></svg><span>{completedToday ? <Check/> : '0/1'}</span></div></section>
   </div>;
+}
+
+function ActivitySummary({ progress, profile, onOpenAchievements }) {
+  const days = actividadUltimosDias(progress.lessons || []); const achievements = calcularLogros(profile, progress, guatemalaDay());
+  const unlocked = achievements.filter(item => item.desbloqueado).length;
+  return <section className="activity-card"><div><span className="eyebrow">ACTIVIDAD RECIENTE</span><h2>Tu semana en SingAI</h2><p>{unlocked} de {achievements.length} logros desbloqueados</p><button onClick={onOpenAchievements}>Ver todos los logros <ChevronRight/></button></div><div className="activity-days">{days.map(day => <div key={day.fecha} className={day.activo ? 'active' : ''} title={day.fecha}><i>{day.activo ? <Check/> : null}</i><span>{day.etiqueta}</span></div>)}</div></section>;
+}
+
+function Achievements({ profile, progress }) {
+  const achievements = calcularLogros(profile, progress, guatemalaDay()); const unlocked = achievements.filter(item => item.desbloqueado).length;
+  return <div className="page enter"><div className="page-heading"><span className="eyebrow">TU COLECCIÓN</span><h1>Logros</h1><p>Cada insignia reconoce una parte real de tu aprendizaje.</p></div><section className="achievement-summary"><Trophy/><div><strong>{unlocked} de {achievements.length}</strong><span>logros desbloqueados</span></div><div className="track"><i style={{width:`${Math.round(unlocked / achievements.length * 100)}%`}}/></div></section><section className="achievement-grid">{achievements.map(item => <article key={item.id} className={item.desbloqueado ? 'unlocked' : 'locked'}><div>{item.desbloqueado ? item.icono : '🔒'}</div><span>{item.desbloqueado ? 'DESBLOQUEADO' : 'PENDIENTE'}</span><h2>{item.titulo}</h2><p>{item.descripcion}</p></article>)}</section></div>;
+}
+
+function SecurityCenter({ user }) {
+  const [state, setState] = useState({ loading: true, events: [], error: '', expiresAt: session.expiresAt });
+  useEffect(() => { api('/security/events').then(data => setState({ loading: false, error: '', ...data })).catch(error => setState(current => ({ ...current, loading: false, error: error.message }))); }, []);
+  const expires = state.expiresAt ? new Intl.DateTimeFormat('es-GT', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(state.expiresAt)) : 'Al cerrar esta pestaña';
+  return <div className="page narrow enter"><div className="page-heading"><span className="eyebrow">PROTECCIÓN DE CUENTA</span><h1>Centro de seguridad</h1><p>Consulta cómo protegemos tu acceso y revisa la actividad reciente.</p></div><section className="security-center"><div className="security-hero"><ShieldCheck/><div><span>ESTADO</span><h2>Cuenta protegida</h2><p>Correo verificado y sesión privada del navegador.</p></div></div><div className="security-facts"><article><Mail/><div><strong>{user.email}</strong><span>Correo verificado</span></div></article><article><LockKeyhole/><div><strong>30 minutos</strong><span>Cierre por inactividad</span></div></article><article><LogOut/><div><strong>{expires}</strong><span>Vencimiento estimado</span></div></article></div><div className="security-events"><h2>Accesos recientes</h2><p>Si no reconoces alguno, cambia tu contraseña inmediatamente.</p>{state.loading ? <p>Cargando actividad…</p> : state.events.length ? state.events.map(event => <article key={event.id}><div><Check/></div><span><strong>Inicio de sesión correcto</strong><small>{event.device}</small></span><time>{new Intl.DateTimeFormat('es-GT',{dateStyle:'medium',timeStyle:'short'}).format(new Date(event.createdAt))}</time></article>) : <p className="muted">El historial empezará a mostrarse con tus próximos accesos.</p>}<Notice text={state.error}/></div></section></div>;
 }
 
 function Learn({ catalog, progress, startLesson }) {
@@ -220,6 +241,7 @@ export default function App() {
   useEffect(()=>{if(session.token)loadPrivate().catch(()=>{session.token=null;setStatus('guest')});else setStatus('guest')},[]);
   useEffect(()=>{if(status!=='ready')return;const timer=setInterval(()=>refreshSocial().catch(()=>{}),30000);return()=>clearInterval(timer)},[status]);
   const onAuth=()=>{setStatus('loading');loadPrivate().catch(()=>setStatus('guest'))}; const logout=()=>{session.token=null;setUser(null);setProfile(null);setSocial(emptySocial);setStatus('guest')};
+  useEffect(()=>{if(status!=='ready')return;let lastTouch=0;const touch=()=>{if(Date.now()-lastTouch>60000){session.touch();lastTouch=Date.now()}};const timer=setInterval(()=>{if(!session.token)logout()},60000);['pointerdown','keydown','touchstart'].forEach(name=>window.addEventListener(name,touch,{passive:true}));return()=>{clearInterval(timer);['pointerdown','keydown','touchstart'].forEach(name=>window.removeEventListener(name,touch))}},[status]);
   const syncOwnSocial=updated=>setSocial(current=>({...current,self:current.self?{...current.self,xp:updated.xp,streak:updated.streak,displayName:updated.displayName,avatar:updated.avatar}:current.self}));
   const complete=async(lessonId,score)=>{const r=await api('/progress/complete',{method:'POST',body:{lessonId,score}});setProfile(r.progress);syncOwnSocial(r.progress);const fresh=await api('/progress');setProgress(fresh);return r};
   const mistake=async()=>{const r=await api('/progress/mistake',{method:'POST'});setProfile(r.progress);syncOwnSocial(r.progress);return r};
@@ -227,6 +249,6 @@ export default function App() {
   if(location.pathname==='/acceso') return <VerifyAction/>;
   if(status==='loading') return <Spinner/>; if(status==='guest') return <AuthScreen onAuth={onAuth}/>; if(!catalog||!profile) return <Spinner/>;
   const saveProfile=updated=>{setProfile(updated);setSocial(current=>({...current,self:current.self?{...current.self,displayName:updated.displayName,avatar:updated.avatar}:current.self}))};
-  const pages={inicio:<Welcome profile={profile} catalog={catalog} progress={progress} startLesson={setLesson} setPage={setPage}/>,aprender:<Learn catalog={catalog} progress={progress} startLesson={setLesson}/>,diccionario:<Dictionary catalog={catalog} autoplay={profile.autoplayVideos}/>,traductor:<Translator catalog={catalog} autoplay={profile.autoplayVideos}/>,rangos:<Ranks profile={profile}/>,amigos:<Friends social={social} onRefresh={refreshSocial}/>,perfil:<Profile profile={profile} user={user} onSaved={saveProfile}/>};
+  const pages={inicio:<Welcome profile={profile} catalog={catalog} progress={progress} startLesson={setLesson} setPage={setPage}/>,aprender:<Learn catalog={catalog} progress={progress} startLesson={setLesson}/>,diccionario:<Dictionary catalog={catalog} autoplay={profile.autoplayVideos}/>,traductor:<Translator catalog={catalog} autoplay={profile.autoplayVideos}/>,rangos:<Ranks profile={profile}/>,logros:<Achievements profile={profile} progress={progress}/>,amigos:<Friends social={social} onRefresh={refreshSocial}/>,seguridad:<SecurityCenter user={user}/>,perfil:<Profile profile={profile} user={user} onSaved={saveProfile}/>};
   return <Shell user={user} profile={profile} page={page} setPage={setPage} logout={logout} pendingCount={social.incoming.length}>{pages[page]}{lesson&&<Lesson lesson={lesson} catalog={catalog} profile={profile} autoplay={profile.autoplayVideos} onClose={()=>setLesson(null)} onComplete={complete} onMistake={mistake}/>}</Shell>;
 }

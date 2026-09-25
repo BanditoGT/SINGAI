@@ -1,0 +1,12 @@
+{
+  "name": "SingAI — Aprende lengua de señas",
+  "short_name": "SingAI",
+  "description": "Aprende lengua de señas con videos, lecciones y práctica interactiva.",
+  "lang": "es-GT",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f7fc",
+  "theme_color": "#6c5ce7",
+  "icons": [{ "src": "/singai-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

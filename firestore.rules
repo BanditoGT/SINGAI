@@ -13,6 +13,17 @@ service cloud.firestore {
       match /progress/{lessonId} {
         allow read, write: if verifiedUser() && request.auth.uid == userId;
       }
+
+      match /securityEvents/{eventId} {
+        allow read: if verifiedUser() && request.auth.uid == userId;
+        allow create: if verifiedUser() && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['type', 'device', 'createdAt'])
+          && request.resource.data.type == 'login'
+          && request.resource.data.device is string
+          && request.resource.data.device.size() <= 100
+          && request.resource.data.createdAt is string;
+        allow update, delete: if false;
+      }
     }
 
     match /publicUsers/{userId} {

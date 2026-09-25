@@ -23,7 +23,16 @@ Si SMTP no está configurado, el mensaje se guarda en `datos/bandeja-salida` par
 
 ## Web pública gratuita
 
-La versión publicada en Firebase mantiene autenticación por contraseña, correo previamente verificado y una sesión privada por pestaña. Firebase Spark no ofrece un backend personalizado gratuito para enviar y validar un código propio en cada acceso. Por seguridad, SingAI no finge esta validación desde JavaScript ni publica credenciales SMTP en el navegador.
+La versión publicada en Firebase mantiene autenticación por contraseña, correo previamente verificado y una sesión privada por pestaña. Sus responsabilidades están divididas entre servicios administrados y módulos de dominio:
+
+- Firebase Authentication: identidad, contraseñas, recuperación y verificación de correo.
+- Cloud Firestore: perfil, progreso, rachas, amistades e historial privado de accesos.
+- Firebase Hosting: aplicación web, videos y experiencia instalable PWA.
+- Reglas de seguridad: autorización por usuario y validación de los eventos registrados.
+- Motor de rachas y logros: cálculo consistente en zona horaria de Guatemala.
+- Gestor de sesión: cierre automático después de 30 minutos de inactividad.
+
+Firebase Spark no ofrece un backend personalizado para enviar y validar de forma segura un código propio en cada acceso. Por seguridad, SingAI no finge esta validación desde JavaScript ni publica credenciales SMTP en el navegador.
 
 ## Política de rachas
 
