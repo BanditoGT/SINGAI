@@ -1,31 +1,36 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function verifiedUser() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
     match /profiles/{userId} {
-      allow create, read, update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow read, update: if verifiedUser() && request.auth.uid == userId;
       allow delete: if false;
 
       match /progress/{lessonId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if verifiedUser() && request.auth.uid == userId;
       }
     }
 
     match /publicUsers/{userId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null
+      allow read: if verifiedUser();
+      allow create, update: if verifiedUser()
         && request.auth.uid == userId
         && request.resource.data.userId == userId;
       allow delete: if false;
     }
 
     match /friendRequests/{requestId} {
-      allow read: if request.auth != null
+      allow read: if verifiedUser()
         && (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
-      allow create: if request.auth != null
+      allow create: if verifiedUser()
         && request.auth.uid == request.resource.data.fromUid
         && request.resource.data.fromUid != request.resource.data.toUid
         && request.resource.data.status == 'pending';
-      allow update: if request.auth != null
+      allow update: if verifiedUser()
         && (
           (request.auth.uid == resource.data.toUid
             && request.resource.data.fromUid == resource.data.fromUid

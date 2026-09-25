@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import {
-  browserLocalPersistence, createUserWithEmailAndPassword, getAuth,
+  browserSessionPersistence, createUserWithEmailAndPassword, getAuth,
   sendEmailVerification, sendPasswordResetEmail, setPersistence,
   signInWithEmailAndPassword, signOut, updateProfile
 } from 'firebase/auth';
@@ -8,7 +8,7 @@ import {
   doc, getDoc, getDocs, getFirestore, increment, runTransaction,
   setDoc, updateDoc, collection, query, where
 } from 'firebase/firestore';
-import { aplicarFallo, calcularRacha, calcularXpGanada, estadoVidas } from './progreso.js';
+import { aplicarFallo, calcularRacha, calcularXpGanada, estadoVidas, rachaVigente } from './progreso.js';
 
 const firebaseConfig = {
   projectId: 'singai-seminario-2026-gt',
@@ -23,22 +23,22 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 auth.languageCode = 'es';
 const db = getFirestore(firebaseApp);
-setPersistence(auth, browserLocalPersistence).catch(() => {});
+const persistenceReady = setPersistence(auth, browserSessionPersistence).catch(() => {});
 
 export const MEDIA_URL = '';
 const SESSION_MARKER = 'singai_firebase_session';
 const VERIFICATION_SENT_AT = 'singai_verification_sent_at';
 const VERIFICATION_COOLDOWN_MS = 2 * 60 * 1000;
 export const session = {
-  get token() { return localStorage.getItem(SESSION_MARKER); },
+  get token() { return sessionStorage.getItem(SESSION_MARKER); },
   set token(value) {
-    value ? localStorage.setItem(SESSION_MARKER, 'active') : localStorage.removeItem(SESSION_MARKER);
+    value ? sessionStorage.setItem(SESSION_MARKER, 'active') : sessionStorage.removeItem(SESSION_MARKER);
     if (!value) signOut(auth).catch(() => {});
   }
 };
 
 const cleanEmail = value => String(value || '').trim().toLowerCase();
-const publicUser = user => ({ id: user.uid, email: user.email, verified: user.emailVerified, createdAt: user.metadata.creationTime });
+const publicUser = user => ({ id: user.uid, email: user.email, verified: user.emailVerified, createdAt: user.metadata.creationTime, lastSignInAt: user.metadata.lastSignInTime });
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Guatemala', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
 async function hashEmail(value) {
@@ -75,6 +75,7 @@ async function sendVerificationWithCooldown(user, force = false) {
 }
 
 async function currentUser() {
+  await persistenceReady;
   await auth.authStateReady();
   if (!auth.currentUser) throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
   return auth.currentUser;
@@ -103,12 +104,12 @@ async function createInitialProfile(user, body) {
     lastActivity: null, createdAt: new Date().toISOString()
   };
   await setDoc(doc(db, 'profiles', user.uid), profile);
-  await syncPublicProfile(user, profile);
   return profile;
 }
 
 async function authApi(path, body) {
   try {
+    await persistenceReady;
     if (path === '/auth/register') {
       const credential = await createUserWithEmailAndPassword(auth, cleanEmail(body.email), String(body.password || ''));
       await updateProfile(credential.user, { displayName: String(body.name || '').trim() });
@@ -158,7 +159,9 @@ async function profileApi(path, method, body) {
   const lessons = progressSnap.docs.map(item => item.data()).sort((a, b) => String(b.completedAt).localeCompare(String(a.completedAt)));
   if (path === '/profile') return { profile: normalizarPerfil(profileSnap.data()) };
   if (path === '/progress') {
-    const normalized = normalizarPerfil(profileSnap.data());
+    const stored = profileSnap.data();
+    const normalized = normalizarPerfil(stored);
+    if (Number(stored.streak || 0) !== normalized.streak) await updateDoc(profileRef, { streak: normalized.streak });
     await syncPublicProfile(user, normalized);
     return { profile: normalized, lessons, completedLessonIds: lessons.map(item => item.lessonId) };
   }
@@ -246,7 +249,7 @@ async function socialApi(path, method, body) {
 
 function normalizarPerfil(profile) {
   const estado = estadoVidas(profile);
-  return { ...profile, hearts: estado.vidas, heartsBlockedUntil: estado.bloqueadoHasta };
+  return { ...profile, streak: rachaVigente(profile, today()), hearts: estado.vidas, heartsBlockedUntil: estado.bloqueadoHasta };
 }
 
 export async function api(path, options = {}) {

@@ -25,6 +25,17 @@ app.use('/internal', (req, res, next) => req.headers['x-service-key'] === servic
 const uid = req => Number(req.headers['x-user-id']);
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: process.env.APP_TIME_ZONE || 'America/Guatemala', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const daysBetween = (a, b) => Math.round((new Date(`${b}T12:00:00Z`) - new Date(`${a}T12:00:00Z`)) / 86400000);
+const activeStreak = row => {
+  if (!row?.last_activity) return 0;
+  const difference = daysBetween(row.last_activity, today());
+  return difference >= 0 && difference <= 1 ? row.streak : 0;
+};
+const normalizeStreak = row => {
+  if (!row) return row;
+  const streak = activeStreak(row);
+  if (streak !== row.streak) db.prepare('UPDATE profiles SET streak=? WHERE user_id=?').run(streak, row.user_id);
+  return { ...row, streak };
+};
 const shape = row => ({ userId: row.user_id, displayName: row.display_name, avatar: row.avatar, learningGoal: row.learning_goal, dailyGoal: row.daily_goal, weeklyGoal: row.weekly_goal, experienceLevel: row.experience_level, preferredCategory: row.preferred_category, bio: row.bio, autoplayVideos: Boolean(row.autoplay_videos), xp: row.xp, streak: row.streak, longestStreak: row.longest_streak, lastActivity: row.last_activity });
 
 app.get('/health', (_req, res) => res.json({ service: 'profile', status: 'ok' }));
@@ -34,7 +45,7 @@ app.post('/internal/profiles', (req, res) => {
   res.status(201).json({ created: true });
 });
 app.get('/internal/profile', (req, res) => {
-  const row = db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req));
+  const row = normalizeStreak(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req)));
   row ? res.json({ profile: shape(row) }) : res.status(404).json({ error: 'Perfil no encontrado.' });
 });
 app.patch('/internal/profile', (req, res) => {
@@ -53,7 +64,7 @@ app.patch('/internal/profile', (req, res) => {
   res.json({ profile: shape(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req))) });
 });
 app.get('/internal/progress', (req, res) => {
-  const profile = db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req));
+  const profile = normalizeStreak(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req)));
   const lessons = db.prepare('SELECT lesson_id AS lessonId,score,attempts,completed_at AS completedAt FROM lesson_progress WHERE user_id=? ORDER BY completed_at DESC').all(uid(req));
   res.json({ profile: profile ? shape(profile) : null, lessons, completedLessonIds: lessons.map(x => x.lessonId) });
 });

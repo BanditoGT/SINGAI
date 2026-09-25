@@ -10,6 +10,20 @@ export function calcularRacha(perfil, diaActual) {
   return 1;
 }
 
+export function rachaVigente(perfil, diaActual) {
+  if (!perfil?.lastActivity) return 0;
+  const diferencia = diasEntre(perfil.lastActivity, diaActual);
+  if (diferencia < 0 || diferencia > 1) return 0;
+  return Math.max(0, Number(perfil.streak || 0));
+}
+
+export function estadoRacha(perfil, diaActual) {
+  const racha = rachaVigente(perfil, diaActual);
+  if (!racha) return { racha: 0, estado: 'sin-racha', mensaje: 'Completa una lección hoy para iniciar una nueva racha.' };
+  if (perfil.lastActivity === diaActual) return { racha, estado: 'protegida', mensaje: 'Tu racha ya está protegida por hoy.' };
+  return { racha, estado: 'en-riesgo', mensaje: 'Practica hoy para no perder tu racha.' };
+}
+
 export function calcularXpGanada(esPrimeraVez, puntuacion) {
   if (!esPrimeraVez) return 2;
   return Number(puntuacion || 0) >= 80 ? 20 : 10;

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aplicarFallo, calcularRacha, calcularXpGanada, estadoVidas, listarRangos, obtenerRango, seCompletoHoy } from '../aplicaciones/interfaz/fuente/progreso.js';
+import { aplicarFallo, calcularRacha, calcularXpGanada, estadoRacha, estadoVidas, listarRangos, obtenerRango, rachaVigente, seCompletoHoy } from '../aplicaciones/interfaz/fuente/progreso.js';
 
 test('la primera práctica inicia una racha de un día', () => {
   assert.equal(calcularRacha({ streak: 0, lastActivity: null }, '2026-08-20'), 1);
@@ -13,6 +13,17 @@ test('varias lecciones el mismo día no inflan la racha', () => {
 test('practicar al día siguiente aumenta la racha y saltarse un día la reinicia', () => {
   assert.equal(calcularRacha({ streak: 4, lastActivity: '2026-08-19' }, '2026-08-20'), 5);
   assert.equal(calcularRacha({ streak: 4, lastActivity: '2026-08-18' }, '2026-08-20'), 1);
+});
+
+test('la racha visible vence después de faltar un día completo', () => {
+  assert.equal(rachaVigente({ streak: 8, lastActivity: '2026-09-22' }, '2026-09-25'), 0);
+  assert.equal(estadoRacha({ streak: 8, lastActivity: '2026-09-22' }, '2026-09-25').estado, 'sin-racha');
+});
+
+test('la racha queda en riesgo si la última práctica fue ayer', () => {
+  const estado = estadoRacha({ streak: 8, lastActivity: '2026-09-24' }, '2026-09-25');
+  assert.equal(estado.racha, 8);
+  assert.equal(estado.estado, 'en-riesgo');
 });
 
 test('la XP distingue entre completar y repetir una lección', () => {
