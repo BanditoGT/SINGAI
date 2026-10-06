@@ -1,0 +1,494 @@
+openapi: 3.1.0
+info:
+  title: SingAI API local
+  version: 2.0.0
+  description: |
+    Contrato verificable de los tres servicios Express incluidos en el repositorio.
+    La interfaz desplegada usa Firebase directamente; esas operaciones no son
+    endpoints HTTP propios y por ello no forman parte de este contrato.
+servers:
+  - url: http://localhost:4100
+    description: Servicio núcleo y API pública local
+security: []
+tags:
+  - name: Estado
+  - name: Catálogo
+  - name: Autenticación
+  - name: Perfil
+  - name: Progreso
+  - name: Interna - perfil
+  - name: Interna - correo
+paths:
+  /api/health:
+    get:
+      tags: [Estado]
+      summary: Estado del servicio núcleo
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /api/catalog:
+    get:
+      tags: [Catálogo]
+      summary: Catálogo completo de unidades, lecciones y señas
+      responses:
+        '200':
+          description: Contenido de datos/catalog.json
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/auth/register:
+    post:
+      tags: [Autenticación]
+      summary: Registra una cuenta local y solicita verificación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Cuenta creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+  /api/auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Inicia sesión en el entorno local
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, user]
+                properties:
+                  token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/auth/me:
+    get:
+      tags: [Autenticación]
+      summary: Obtiene la cuenta autenticada
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Cuenta actual
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/auth/magic-link:
+    post:
+      tags: [Autenticación]
+      summary: Solicita un enlace de acceso
+      requestBody:
+        $ref: '#/components/requestBodies/Email'
+      responses:
+        '200':
+          description: Respuesta uniforme, exista o no la cuenta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+  /api/auth/forgot-password:
+    post:
+      tags: [Autenticación]
+      summary: Solicita un enlace de restablecimiento
+      requestBody:
+        $ref: '#/components/requestBodies/Email'
+      responses:
+        '200':
+          description: Respuesta uniforme, exista o no la cuenta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+  /api/auth/magic/verify:
+    post:
+      tags: [Autenticación]
+      summary: Consume un token de acceso o verificación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '200':
+          description: Token de sesión y usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '400':
+          $ref: '#/components/responses/Error'
+  /api/auth/reset-password:
+    post:
+      tags: [Autenticación]
+      summary: Cambia la contraseña con un token de un solo uso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, minLength: 8 }
+      responses:
+        '200':
+          description: Contraseña actualizada
+        '400':
+          $ref: '#/components/responses/Error'
+  /api/profile:
+    get:
+      tags: [Perfil]
+      summary: Obtiene el perfil autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Perfil actual
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [Perfil]
+      summary: Actualiza campos permitidos del perfil
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfilePatch'
+      responses:
+        '200':
+          description: Perfil actualizado
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/progress:
+    get:
+      tags: [Progreso]
+      summary: Obtiene perfil y lecciones completadas
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Progreso actual
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/progress/complete:
+    post:
+      tags: [Progreso]
+      summary: Registra o repite una lección
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteLessonRequest'
+      responses:
+        '200':
+          description: Progreso actualizado
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /health:
+    get:
+      tags: [Estado]
+      summary: Estado de un servicio interno
+      description: Disponible tanto en perfil (4101) como en correo (4102).
+      servers:
+        - url: http://localhost:4101
+          description: Servicio de perfil
+        - url: http://localhost:4102
+          description: Servicio de correo
+      responses:
+        '200':
+          description: Servicio disponible
+  /internal/profiles:
+    post:
+      tags: [Interna - perfil]
+      summary: Crea el perfil asociado a una cuenta local
+      servers: [{ url: http://localhost:4101 }]
+      security: [{ serviceKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, displayName]
+              properties:
+                userId: { type: integer }
+                displayName: { type: string, maxLength: 60 }
+                learningGoal: { type: string, maxLength: 40 }
+      responses:
+        '201': { description: Perfil creado o ya existente }
+        '403': { $ref: '#/components/responses/Error' }
+  /internal/profile:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Interna - perfil]
+      summary: Obtiene un perfil por usuario
+      servers: [{ url: http://localhost:4101 }]
+      security: [{ serviceKey: [] }]
+      responses:
+        '200': { description: Perfil }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [Interna - perfil]
+      summary: Actualiza un perfil por usuario
+      servers: [{ url: http://localhost:4101 }]
+      security: [{ serviceKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfilePatch'
+      responses:
+        '200': { description: Perfil actualizado }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /internal/progress:
+    get:
+      tags: [Interna - perfil]
+      summary: Obtiene progreso por usuario
+      servers: [{ url: http://localhost:4101 }]
+      security: [{ serviceKey: [] }]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200': { description: Perfil y lecciones }
+        '403': { $ref: '#/components/responses/Error' }
+  /internal/progress/complete:
+    post:
+      tags: [Interna - perfil]
+      summary: Registra una lección por usuario
+      servers: [{ url: http://localhost:4101 }]
+      security: [{ serviceKey: [] }]
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteLessonRequest'
+      responses:
+        '200': { description: Progreso actualizado }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /internal/email/magic-link:
+    post:
+      tags: [Interna - correo]
+      summary: Entrega un enlace de acceso
+      servers: [{ url: http://localhost:4102 }]
+      security: [{ serviceKey: [] }]
+      requestBody:
+        $ref: '#/components/requestBodies/Mail'
+      responses:
+        '202': { description: Mensaje encolado o guardado localmente }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+  /internal/email/verify-account:
+    post:
+      tags: [Interna - correo]
+      summary: Entrega un enlace de verificación
+      servers: [{ url: http://localhost:4102 }]
+      security: [{ serviceKey: [] }]
+      requestBody:
+        $ref: '#/components/requestBodies/Mail'
+      responses:
+        '202': { description: Mensaje encolado o guardado localmente }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+  /internal/email/password-reset:
+    post:
+      tags: [Interna - correo]
+      summary: Entrega un enlace de restablecimiento
+      servers: [{ url: http://localhost:4102 }]
+      security: [{ serviceKey: [] }]
+      requestBody:
+        $ref: '#/components/requestBodies/Mail'
+      responses:
+        '202': { description: Mensaje encolado o guardado localmente }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    serviceKey:
+      type: apiKey
+      in: header
+      name: x-service-key
+  parameters:
+    UserId:
+      name: x-user-id
+      in: header
+      required: true
+      schema: { type: integer }
+  requestBodies:
+    Email:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties:
+              email: { type: string, format: email }
+    Mail:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [to, link]
+            properties:
+              to: { type: string, format: email }
+              name: { type: string }
+              link: { type: string, format: uri }
+  responses:
+    Error:
+      description: Error de validación, autorización o dependencia
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    Health:
+      type: object
+      required: [service, status]
+      properties:
+        service: { type: string }
+        status: { type: string, const: ok }
+    User:
+      type: object
+      required: [id, email, verified, createdAt]
+      properties:
+        id: { type: integer }
+        email: { type: string, format: email }
+        verified: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        name: { type: string, minLength: 2 }
+        learningGoal: { type: string }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    DeliveryResponse:
+      type: object
+      properties:
+        requiresVerification: { type: boolean }
+        email: { type: string, format: email }
+        message: { type: string }
+        delivery:
+          type: string
+          enum: [smtp, local-outbox, unavailable]
+    ProfilePatch:
+      type: object
+      properties:
+        displayName: { type: string, maxLength: 60 }
+        avatar: { type: string }
+        learningGoal: { type: string, maxLength: 40 }
+        dailyGoal: { type: integer, minimum: 1, maximum: 10 }
+        weeklyGoal: { type: integer, minimum: 1, maximum: 7 }
+        experienceLevel:
+          type: string
+          enum: [principiante, intermedio, avanzado]
+        preferredCategory:
+          type: string
+          enum: [abecedario, conversaciones, emociones, dias, acciones]
+        bio: { type: string, maxLength: 180 }
+        autoplayVideos: { type: boolean }
+    CompleteLessonRequest:
+      type: object
+      required: [lessonId, score]
+      properties:
+        lessonId: { type: string, maxLength: 80 }
+        score: { type: number, minimum: 0, maximum: 100 }

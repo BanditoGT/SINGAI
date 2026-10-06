@@ -1,0 +1,44 @@
+# Dependencias y artefactos de construcción
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+
+# Configuración local y secretos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Datos locales generados por los microservicios
+datos/*.db
+datos/*.db-*
+datos/*.sqlite
+datos/*.sqlite-*
+datos/bandeja-salida/
+
+# Cachés y temporales
+cache_de_python/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.cache/
+.tmp/
+tmp/
+*.log
+
+# Firebase local
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Editor y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

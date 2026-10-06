@@ -1,0 +1,768 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-20T01:59:43.776Z",
+  "totalSigns": 105,
+  "units": [
+    {
+      "id": "abecedario",
+      "title": "El abecedario",
+      "description": "Aprende a deletrear nombres y palabras.",
+      "icon": "spell-check",
+      "color": "#6C5CE7",
+      "order": 1,
+      "sourceGroup": "Abecedario",
+      "totalSigns": 29,
+      "lessons": [
+        {
+          "id": "abecedario-1",
+          "title": "Lección 1",
+          "description": "A · F",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "abecedario-a",
+              "term": "A",
+              "video": "/multimedia/Abecedario/A.mp4"
+            },
+            {
+              "id": "abecedario-b",
+              "term": "B",
+              "video": "/multimedia/Abecedario/B.mp4"
+            },
+            {
+              "id": "abecedario-c",
+              "term": "C",
+              "video": "/multimedia/Abecedario/C.mp4"
+            },
+            {
+              "id": "abecedario-d",
+              "term": "D",
+              "video": "/multimedia/Abecedario/D.mp4"
+            },
+            {
+              "id": "abecedario-e",
+              "term": "E",
+              "video": "/multimedia/Abecedario/E.mp4"
+            },
+            {
+              "id": "abecedario-f",
+              "term": "F",
+              "video": "/multimedia/Abecedario/F.mp4"
+            }
+          ]
+        },
+        {
+          "id": "abecedario-2",
+          "title": "Lección 2",
+          "description": "G · L",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "abecedario-g",
+              "term": "G",
+              "video": "/multimedia/Abecedario/G.mp4"
+            },
+            {
+              "id": "abecedario-h",
+              "term": "H",
+              "video": "/multimedia/Abecedario/H.mp4"
+            },
+            {
+              "id": "abecedario-i",
+              "term": "I",
+              "video": "/multimedia/Abecedario/I.mp4"
+            },
+            {
+              "id": "abecedario-j",
+              "term": "J",
+              "video": "/multimedia/Abecedario/J.mp4"
+            },
+            {
+              "id": "abecedario-k",
+              "term": "K",
+              "video": "/multimedia/Abecedario/K.mp4"
+            },
+            {
+              "id": "abecedario-l",
+              "term": "L",
+              "video": "/multimedia/Abecedario/L.mp4"
+            }
+          ]
+        },
+        {
+          "id": "abecedario-3",
+          "title": "Lección 3",
+          "description": "LL · P",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "abecedario-ll",
+              "term": "LL",
+              "video": "/multimedia/Abecedario/LL.mp4"
+            },
+            {
+              "id": "abecedario-m",
+              "term": "M",
+              "video": "/multimedia/Abecedario/M.mp4"
+            },
+            {
+              "id": "abecedario-n",
+              "term": "N",
+              "video": "/multimedia/Abecedario/N.mp4"
+            },
+            {
+              "id": "abecedario-enie",
+              "term": "Ñ",
+              "video": "/multimedia/Abecedario/%C3%91.mp4"
+            },
+            {
+              "id": "abecedario-o",
+              "term": "O",
+              "video": "/multimedia/Abecedario/O.mp4"
+            },
+            {
+              "id": "abecedario-p",
+              "term": "P",
+              "video": "/multimedia/Abecedario/P.mp4"
+            }
+          ]
+        },
+        {
+          "id": "abecedario-4",
+          "title": "Lección 4",
+          "description": "Q · U",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "abecedario-q",
+              "term": "Q",
+              "video": "/multimedia/Abecedario/Q.mp4"
+            },
+            {
+              "id": "abecedario-r",
+              "term": "R",
+              "video": "/multimedia/Abecedario/R.mp4"
+            },
+            {
+              "id": "abecedario-rr",
+              "term": "RR",
+              "video": "/multimedia/Abecedario/RR.mp4"
+            },
+            {
+              "id": "abecedario-s",
+              "term": "S",
+              "video": "/multimedia/Abecedario/S.mp4"
+            },
+            {
+              "id": "abecedario-t",
+              "term": "T",
+              "video": "/multimedia/Abecedario/T.mp4"
+            },
+            {
+              "id": "abecedario-u",
+              "term": "U",
+              "video": "/multimedia/Abecedario/U.mp4"
+            }
+          ]
+        },
+        {
+          "id": "abecedario-5",
+          "title": "Lección 5",
+          "description": "V · Z",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "abecedario-v",
+              "term": "V",
+              "video": "/multimedia/Abecedario/V.mp4"
+            },
+            {
+              "id": "abecedario-w",
+              "term": "W",
+              "video": "/multimedia/Abecedario/W.mp4"
+            },
+            {
+              "id": "abecedario-x",
+              "term": "X",
+              "video": "/multimedia/Abecedario/X.mp4"
+            },
+            {
+              "id": "abecedario-y",
+              "term": "Y",
+              "video": "/multimedia/Abecedario/Y.mp4"
+            },
+            {
+              "id": "abecedario-z",
+              "term": "Z",
+              "video": "/multimedia/Abecedario/Z.mp4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frases-de-cortesia",
+      "title": "Primeras conversaciones",
+      "description": "Saluda y comunícate con respeto.",
+      "icon": "messages",
+      "color": "#00A884",
+      "order": 2,
+      "sourceGroup": "Frases de cortesia",
+      "totalSigns": 26,
+      "lessons": [
+        {
+          "id": "frases-de-cortesia-1",
+          "title": "Lección 1",
+          "description": "Adios · Buenas Noches",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "frases-de-cortesia-adios",
+              "term": "Adios",
+              "video": "/multimedia/Frases%20de%20cortesia/Adios.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-atencion",
+              "term": "Atencion",
+              "video": "/multimedia/Frases%20de%20cortesia/Atencion.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-bienvenido",
+              "term": "Bienvenido",
+              "video": "/multimedia/Frases%20de%20cortesia/Bienvenido.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-buen-provecho",
+              "term": "Buen Provecho",
+              "video": "/multimedia/Frases%20de%20cortesia/Buen%20provecho.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-buenas-noches",
+              "term": "Buenas Noches",
+              "video": "/multimedia/Frases%20de%20cortesia/Buenas%20noches.mp4"
+            }
+          ]
+        },
+        {
+          "id": "frases-de-cortesia-2",
+          "title": "Lección 2",
+          "description": "Buenas Tardes · De Nada",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "frases-de-cortesia-buenas-tardes",
+              "term": "Buenas Tardes",
+              "video": "/multimedia/Frases%20de%20cortesia/Buenas%20tardes.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-buenos-dias",
+              "term": "Buenos Dias",
+              "video": "/multimedia/Frases%20de%20cortesia/Buenos%20dias.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-como-estas",
+              "term": "Como Estas",
+              "video": "/multimedia/Frases%20de%20cortesia/Como%20estas.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-cuidate-mucho",
+              "term": "Cuidate Mucho",
+              "video": "/multimedia/Frases%20de%20cortesia/Cuidate%20mucho.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-de-nada",
+              "term": "De Nada",
+              "video": "/multimedia/Frases%20de%20cortesia/De%20nada.mp4"
+            }
+          ]
+        },
+        {
+          "id": "frases-de-cortesia-3",
+          "title": "Lección 3",
+          "description": "Dios Te Bendiga · Gracias",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "frases-de-cortesia-dios-te-bendiga",
+              "term": "Dios Te Bendiga",
+              "video": "/multimedia/Frases%20de%20cortesia/Dios%20te%20bendiga.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-disculpa",
+              "term": "Disculpa",
+              "video": "/multimedia/Frases%20de%20cortesia/Disculpa.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-dudas",
+              "term": "Dudas",
+              "video": "/multimedia/Frases%20de%20cortesia/Dudas.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-entiendes",
+              "term": "Entiendes",
+              "video": "/multimedia/Frases%20de%20cortesia/Entiendes.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-gracias",
+              "term": "Gracias",
+              "video": "/multimedia/Frases%20de%20cortesia/Gracias.mp4"
+            }
+          ]
+        },
+        {
+          "id": "frases-de-cortesia-4",
+          "title": "Lección 4",
+          "description": "Hola · Nada",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "frases-de-cortesia-hola",
+              "term": "Hola",
+              "video": "/multimedia/Frases%20de%20cortesia/Hola.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-mi-apellido-es",
+              "term": "Mi Apellido Es",
+              "video": "/multimedia/Frases%20de%20cortesia/Mi%20apellido%20es.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-mi-nombre-es",
+              "term": "Mi Nombre Es",
+              "video": "/multimedia/Frases%20de%20cortesia/Mi%20nombre%20es.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-mucho-gusto",
+              "term": "Mucho Gusto",
+              "video": "/multimedia/Frases%20de%20cortesia/Mucho%20gusto.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-nada",
+              "term": "Nada",
+              "video": "/multimedia/Frases%20de%20cortesia/Nada.mp4"
+            }
+          ]
+        },
+        {
+          "id": "frases-de-cortesia-5",
+          "title": "Lección 5",
+          "description": "Nadie · Permiso",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "frases-de-cortesia-nadie",
+              "term": "Nadie",
+              "video": "/multimedia/Frases%20de%20cortesia/Nadie.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-numero-de-telefono",
+              "term": "Numero De Telefono",
+              "video": "/multimedia/Frases%20de%20cortesia/Numero%20de%20telefono.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-otra-vez",
+              "term": "Otra Vez",
+              "video": "/multimedia/Frases%20de%20cortesia/Otra%20vez.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-perdon",
+              "term": "Perdon",
+              "video": "/multimedia/Frases%20de%20cortesia/Perdon.mp4"
+            },
+            {
+              "id": "frases-de-cortesia-permiso",
+              "term": "Permiso",
+              "video": "/multimedia/Frases%20de%20cortesia/Permiso.mp4"
+            }
+          ]
+        },
+        {
+          "id": "frases-de-cortesia-6",
+          "title": "Lección 6",
+          "description": "Por Favor · Por Favor",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "frases-de-cortesia-por-favor",
+              "term": "Por Favor",
+              "video": "/multimedia/Frases%20de%20cortesia/por%20favor.mp4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "emociones",
+      "title": "Emociones",
+      "description": "Expresa cómo te sientes.",
+      "icon": "heart",
+      "color": "#F05D7B",
+      "order": 3,
+      "sourceGroup": "Emociones",
+      "totalSigns": 9,
+      "lessons": [
+        {
+          "id": "emociones-1",
+          "title": "Lección 1",
+          "description": "Amar · Lo Siento",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "emociones-amar",
+              "term": "Amar",
+              "video": "/multimedia/Emociones/Amar.mp4"
+            },
+            {
+              "id": "emociones-deprimir",
+              "term": "Deprimir",
+              "video": "/multimedia/Emociones/Deprimir.mp4"
+            },
+            {
+              "id": "emociones-feliz",
+              "term": "Feliz",
+              "video": "/multimedia/Emociones/Feliz.mp4"
+            },
+            {
+              "id": "emociones-llorar",
+              "term": "Llorar",
+              "video": "/multimedia/Emociones/Llorar.mp4"
+            },
+            {
+              "id": "emociones-lo-siento",
+              "term": "Lo Siento",
+              "video": "/multimedia/Emociones/Lo%20siento.mp4"
+            }
+          ]
+        },
+        {
+          "id": "emociones-2",
+          "title": "Lección 2",
+          "description": "Odiar · Triste",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "emociones-odiar",
+              "term": "Odiar",
+              "video": "/multimedia/Emociones/Odiar.mp4"
+            },
+            {
+              "id": "emociones-reir",
+              "term": "Reir",
+              "video": "/multimedia/Emociones/Reir.mp4"
+            },
+            {
+              "id": "emociones-solitario",
+              "term": "Solitario",
+              "video": "/multimedia/Emociones/Solitario.mp4"
+            },
+            {
+              "id": "emociones-triste",
+              "term": "Triste",
+              "video": "/multimedia/Emociones/Triste.mp4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dias-de-la-semana",
+      "title": "Días de la semana",
+      "description": "Habla sobre planes y fechas.",
+      "icon": "calendar",
+      "color": "#F5A623",
+      "order": 4,
+      "sourceGroup": "Dias de la semana",
+      "totalSigns": 7,
+      "lessons": [
+        {
+          "id": "dias-de-la-semana-1",
+          "title": "Lección 1",
+          "description": "Domingo · Miercoles",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "dias-de-la-semana-domingo",
+              "term": "Domingo",
+              "video": "/multimedia/Dias%20de%20la%20semana/Domingo.mp4"
+            },
+            {
+              "id": "dias-de-la-semana-jueves",
+              "term": "Jueves",
+              "video": "/multimedia/Dias%20de%20la%20semana/Jueves.mp4"
+            },
+            {
+              "id": "dias-de-la-semana-lunes",
+              "term": "Lunes",
+              "video": "/multimedia/Dias%20de%20la%20semana/Lunes.mp4"
+            },
+            {
+              "id": "dias-de-la-semana-martes",
+              "term": "Martes",
+              "video": "/multimedia/Dias%20de%20la%20semana/Martes.mp4"
+            },
+            {
+              "id": "dias-de-la-semana-miercoles",
+              "term": "Miercoles",
+              "video": "/multimedia/Dias%20de%20la%20semana/Miercoles.mp4"
+            }
+          ]
+        },
+        {
+          "id": "dias-de-la-semana-2",
+          "title": "Lección 2",
+          "description": "Sabado · Viernes",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "dias-de-la-semana-sabado",
+              "term": "Sabado",
+              "video": "/multimedia/Dias%20de%20la%20semana/Sabado.mp4"
+            },
+            {
+              "id": "dias-de-la-semana-viernes",
+              "term": "Viernes",
+              "video": "/multimedia/Dias%20de%20la%20semana/Viernes.mp4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "varios",
+      "title": "Acciones cotidianas",
+      "description": "Amplía tu vocabulario para el día a día.",
+      "icon": "sparkles",
+      "color": "#2D8CFF",
+      "order": 5,
+      "sourceGroup": "Varios",
+      "totalSigns": 34,
+      "lessons": [
+        {
+          "id": "varios-1",
+          "title": "Lección 1",
+          "description": "Adios · Borrar",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "varios-adios",
+              "term": "Adios",
+              "video": "/multimedia/Varios/Adios.mp4"
+            },
+            {
+              "id": "varios-alcanzar",
+              "term": "Alcanzar",
+              "video": "/multimedia/Varios/Alcanzar.mp4"
+            },
+            {
+              "id": "varios-alimentar",
+              "term": "Alimentar",
+              "video": "/multimedia/Varios/Alimentar.mp4"
+            },
+            {
+              "id": "varios-aprobar",
+              "term": "Aprobar",
+              "video": "/multimedia/Varios/Aprobar.mp4"
+            },
+            {
+              "id": "varios-borrar",
+              "term": "Borrar",
+              "video": "/multimedia/Varios/Borrar.mp4"
+            }
+          ]
+        },
+        {
+          "id": "varios-2",
+          "title": "Lección 2",
+          "description": "Cantar · Conocer",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "varios-cantar",
+              "term": "Cantar",
+              "video": "/multimedia/Varios/Cantar.mp4"
+            },
+            {
+              "id": "varios-capturar",
+              "term": "Capturar",
+              "video": "/multimedia/Varios/Capturar.mp4"
+            },
+            {
+              "id": "varios-compartir",
+              "term": "Compartir",
+              "video": "/multimedia/Varios/Compartir.mp4"
+            },
+            {
+              "id": "varios-comprender",
+              "term": "Comprender",
+              "video": "/multimedia/Varios/Comprender.mp4"
+            },
+            {
+              "id": "varios-conocer",
+              "term": "Conocer",
+              "video": "/multimedia/Varios/Conocer.mp4"
+            }
+          ]
+        },
+        {
+          "id": "varios-3",
+          "title": "Lección 3",
+          "description": "Crecer · Discutir",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "varios-crecer",
+              "term": "Crecer",
+              "video": "/multimedia/Varios/Crecer.mp4"
+            },
+            {
+              "id": "varios-dar",
+              "term": "Dar",
+              "video": "/multimedia/Varios/Dar.mp4"
+            },
+            {
+              "id": "varios-debe",
+              "term": "Debe",
+              "video": "/multimedia/Varios/Debe.mp4"
+            },
+            {
+              "id": "varios-desear",
+              "term": "Desear",
+              "video": "/multimedia/Varios/Desear.mp4"
+            },
+            {
+              "id": "varios-discutir",
+              "term": "Discutir",
+              "video": "/multimedia/Varios/Discutir.mp4"
+            }
+          ]
+        },
+        {
+          "id": "varios-4",
+          "title": "Lección 4",
+          "description": "Educar · Esperar",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "varios-educar",
+              "term": "Educar",
+              "video": "/multimedia/Varios/Educar.mp4"
+            },
+            {
+              "id": "varios-elegir",
+              "term": "Elegir",
+              "video": "/multimedia/Varios/elegir.mp4"
+            },
+            {
+              "id": "varios-eliminar",
+              "term": "Eliminar",
+              "video": "/multimedia/Varios/Eliminar.mp4"
+            },
+            {
+              "id": "varios-entender",
+              "term": "Entender",
+              "video": "/multimedia/Varios/Entender.mp4"
+            },
+            {
+              "id": "varios-esperar",
+              "term": "Esperar",
+              "video": "/multimedia/Varios/Esperar.mp4"
+            }
+          ]
+        },
+        {
+          "id": "varios-5",
+          "title": "Lección 5",
+          "description": "Estar · Hablar",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "varios-estar",
+              "term": "Estar",
+              "video": "/multimedia/Varios/Estar.mp4"
+            },
+            {
+              "id": "varios-estudiar",
+              "term": "Estudiar",
+              "video": "/multimedia/Varios/Estudiar.mp4"
+            },
+            {
+              "id": "varios-fijar",
+              "term": "Fijar",
+              "video": "/multimedia/Varios/Fijar.mp4"
+            },
+            {
+              "id": "varios-haber",
+              "term": "Haber",
+              "video": "/multimedia/Varios/haber.mp4"
+            },
+            {
+              "id": "varios-hablar",
+              "term": "Hablar",
+              "video": "/multimedia/Varios/Hablar.mp4"
+            }
+          ]
+        },
+        {
+          "id": "varios-6",
+          "title": "Lección 6",
+          "description": "Hacer · Pintar",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "varios-hacer",
+              "term": "Hacer",
+              "video": "/multimedia/Varios/Hacer.mp4"
+            },
+            {
+              "id": "varios-mejorar",
+              "term": "Mejorar",
+              "video": "/multimedia/Varios/Mejorar.mp4"
+            },
+            {
+              "id": "varios-morder",
+              "term": "Morder",
+              "video": "/multimedia/Varios/Morder.mp4"
+            },
+            {
+              "id": "varios-necesitar",
+              "term": "Necesitar",
+              "video": "/multimedia/Varios/Necesitar.mp4"
+            },
+            {
+              "id": "varios-pintar",
+              "term": "Pintar",
+              "video": "/multimedia/Varios/Pintar.mp4"
+            }
+          ]
+        },
+        {
+          "id": "varios-7",
+          "title": "Lección 7",
+          "description": "Querer · Tener",
+          "xp": 20,
+          "signs": [
+            {
+              "id": "varios-querer",
+              "term": "Querer",
+              "video": "/multimedia/Varios/Querer.mp4"
+            },
+            {
+              "id": "varios-recibir",
+              "term": "Recibir",
+              "video": "/multimedia/Varios/Recibir.mp4"
+            },
+            {
+              "id": "varios-ser",
+              "term": "Ser",
+              "video": "/multimedia/Varios/Ser.mp4"
+            },
+            {
+              "id": "varios-tener",
+              "term": "Tener",
+              "video": "/multimedia/Varios/tener.mp4"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

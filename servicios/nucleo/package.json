@@ -1,0 +1,7 @@
+{
+  "name": "@singai/nucleo",
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": { "dev": "node --watch codigo/server.mjs", "start": "node codigo/server.mjs" },
+  "dependencies": { "cors": "^2.8.5", "dotenv": "^17.2.1", "express": "^5.1.0" }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "singai",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["aplicaciones/*", "servicios/*"],
+  "scripts": {
+    "catalog": "node herramientas/construir-catalogo.mjs",
+    "reset:data": "node herramientas/reiniciar-datos-locales.mjs",
+    "dev": "concurrently -n INTERFAZ,NUCLEO,PERFIL,CORREO -c cyan,green,magenta,yellow \"pnpm --filter @singai/interfaz dev\" \"pnpm --filter @singai/nucleo dev\" \"pnpm --filter @singai/perfil dev\" \"pnpm --filter @singai/correo dev\"",
+    "build": "pnpm --filter @singai/interfaz build",
+    "build:firebase": "pnpm build && node herramientas/preparar-firebase.mjs",
+    "test": "node --test pruebas/*.test.mjs",
+    "evidence:integration": "node herramientas/verificar-integracion-local.mjs",
+    "start": "concurrently -n NUCLEO,PERFIL,CORREO -c green,magenta,yellow \"pnpm --filter @singai/nucleo start\" \"pnpm --filter @singai/perfil start\" \"pnpm --filter @singai/correo start\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": { "node": ">=22" }
+}

@@ -1,0 +1,75 @@
+.video-frame,
+.preview-video,
+.translator-video {
+  position: relative;
+}
+
+.video-frame > span {
+  pointer-events: none;
+}
+
+.video-toggle,
+.translator-video > .video-toggle {
+  position: absolute;
+  z-index: 4;
+  left: 12px;
+  right: auto;
+  bottom: 12px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #6c5ce7;
+  color: #fff;
+  box-shadow: 0 6px 18px #1118;
+  transition: transform .2s, background .2s;
+}
+
+.video-toggle:hover {
+  background: #5646ce;
+  transform: scale(1.06);
+}
+
+.video-toggle svg,
+.translator-video > .video-toggle svg {
+  width: 19px;
+  fill: currentColor;
+}
+
+.video-error {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  background: #171a24;
+  color: #fff;
+  font-size: .8rem;
+  text-align: center;
+}
+
+.video-error svg {
+  width: 18px;
+  color: #ff8097;
+}
+
+.spell-note {
+  margin: 14px 17px 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #f3f1ff;
+  color: #675eb0;
+  font-size: .72rem;
+}
+
+.queue button.letter {
+  min-width: 31px;
+  border-style: dashed;
+  font-weight: 800;
+}
