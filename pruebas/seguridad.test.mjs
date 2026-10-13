@@ -19,3 +19,8 @@ test('los tokens de un solo uso se guardan como resumen', () => {
   assert.equal(tokenDigest('abc'), tokenDigest('abc'));
   assert.notEqual(tokenDigest('abc'), tokenDigest('abcd'));
 });
+
+test('un token con segmentos adicionales es rechazado', () => {
+  const token = signToken({ sub: 1 }, 'secreto', 60);
+  assert.equal(verifyToken(`${token}.extra`, 'secreto'), null);
+});

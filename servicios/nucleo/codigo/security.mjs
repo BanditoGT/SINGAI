@@ -9,7 +9,9 @@ export function signToken(payload, secret, ttlSeconds = 60 * 60 * 24 * 7) {
 }
 export function verifyToken(token, secret) {
   if (!token || typeof token !== 'string') return null;
-  const [header, body, signature] = token.split('.');
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [header, body, signature] = parts;
   if (!header || !body || !signature) return null;
   const expected = createHmac('sha256', secret).update(`${header}.${body}`).digest();
   const received = Buffer.from(signature, 'base64url');
