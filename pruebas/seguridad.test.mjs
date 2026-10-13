@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import { hashPassword, checkPassword, signToken, verifyToken, tokenDigest } from '../servicios/nucleo/codigo/security.mjs';
 
 test('las contraseñas se almacenan con sal y scrypt', () => {
@@ -23,4 +24,12 @@ test('los tokens de un solo uso se guardan como resumen', () => {
 test('un token con segmentos adicionales es rechazado', () => {
   const token = signToken({ sub: 1 }, 'secreto', 60);
   assert.equal(verifyToken(`${token}.extra`, 'secreto'), null);
+});
+
+test('un vencimiento escrito como texto no valida la sesión', () => {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ sub: 1, exp: '9999999999' })).toString('base64url');
+  const signature = createHmac('sha256', 'secreto').update(`${header}.${body}`).digest('base64url');
+  const token = `${header}.${body}.${signature}`;
+  assert.equal(verifyToken(token, 'secreto'), null);
 });

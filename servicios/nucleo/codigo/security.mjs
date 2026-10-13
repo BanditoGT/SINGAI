@@ -18,7 +18,7 @@ export function verifyToken(token, secret) {
   if (received.length !== expected.length || !timingSafeEqual(received, expected)) return null;
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
-    return payload.exp > Math.floor(Date.now() / 1000) ? payload : null;
+    return Number.isFinite(payload.exp) && payload.exp > Math.floor(Date.now() / 1000) ? payload : null;
   } catch { return null; }
 }
 export function hashPassword(password, salt = randomBytes(16).toString('hex')) {
