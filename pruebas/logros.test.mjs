@@ -20,3 +20,8 @@ test('la actividad semanal marca únicamente días practicados', () => {
   assert.equal(actividad.at(-1).activo, true);
   assert.equal(actividad.filter(item => item.activo).length, 1);
 });
+
+test('una lección repetida cuenta una sola vez para los logros', () => {
+  const logros = calcularLogros({ xp: 0, streak: 0 }, { completedLessonIds: ['a','a','b','c','d'] }, '2026-09-25');
+  assert.equal(logros.find(item => item.id === 'en-marcha').desbloqueado, false);
+});
