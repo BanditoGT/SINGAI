@@ -20,3 +20,10 @@ test('cada lección apunta a videos existentes', () => {
     assert.equal(existsSync(join(root, 'multimedia', relative)), true, sign.video);
   }
 });
+
+test('las unidades y lecciones tienen identificadores únicos', () => {
+  const unitIds = catalog.units.map(unit => unit.id);
+  const lessonIds = catalog.units.flatMap(unit => unit.lessons.map(lesson => lesson.id));
+  assert.equal(new Set(unitIds).size, unitIds.length);
+  assert.equal(new Set(lessonIds).size, lessonIds.length);
+});
