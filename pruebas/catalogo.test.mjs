@@ -27,3 +27,14 @@ test('las unidades y lecciones tienen identificadores únicos', () => {
   assert.equal(new Set(unitIds).size, unitIds.length);
   assert.equal(new Set(lessonIds).size, lessonIds.length);
 });
+
+test('las unidades y lecciones incluyen títulos y descripciones', () => {
+  for (const unit of catalog.units) {
+    assert.ok(unit.title.trim(), unit.id);
+    assert.ok(unit.description.trim(), unit.id);
+    for (const lesson of unit.lessons) {
+      assert.ok(lesson.title.trim(), lesson.id);
+      assert.ok(lesson.description.trim(), lesson.id);
+    }
+  }
+});
