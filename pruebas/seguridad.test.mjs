@@ -33,3 +33,8 @@ test('un vencimiento escrito como texto no valida la sesión', () => {
   const token = `${header}.${body}.${signature}`;
   assert.equal(verifyToken(token, 'secreto'), null);
 });
+
+test('un token sin vencimiento es rechazado', () => {
+  const token = signToken({ sub: 1 }, 'secreto', -1);
+  assert.equal(verifyToken(token, 'secreto'), null);
+});
