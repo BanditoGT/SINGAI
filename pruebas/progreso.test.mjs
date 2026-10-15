@@ -72,3 +72,8 @@ test('las vidas vuelven a cinco cuando termina el bloqueo', () => {
 test('la racha nunca conserva valores negativos', () => {
   assert.equal(calcularRacha({ streak: -4, lastActivity: '2026-09-25' }, '2026-09-25'), 0);
 });
+
+test('una puntuación inválida recibe la XP mínima', () => {
+  assert.equal(calcularXpGanada(true, 'sin-puntuacion'), 10);
+  assert.equal(calcularXpGanada(true, 500), 20);
+});

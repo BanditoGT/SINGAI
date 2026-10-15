@@ -25,7 +25,9 @@ export function estadoRacha(perfil, diaActual) {
 
 export function calcularXpGanada(esPrimeraVez, puntuacion) {
   if (!esPrimeraVez) return 2;
-  return Number(puntuacion || 0) >= 80 ? 20 : 10;
+  const valor = Number(puntuacion);
+  const puntuacionValida = Number.isFinite(valor) ? Math.max(0, Math.min(100, valor)) : 0;
+  return puntuacionValida >= 80 ? 20 : 10;
 }
 
 export const VIDAS_MAXIMAS = 5;
