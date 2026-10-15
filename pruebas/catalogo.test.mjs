@@ -38,3 +38,9 @@ test('las unidades y lecciones incluyen títulos y descripciones', () => {
     }
   }
 });
+
+test('cada lección ofrece una cantidad positiva de XP', () => {
+  for (const unit of catalog.units) for (const lesson of unit.lessons) {
+    assert.equal(Number.isInteger(lesson.xp) && lesson.xp > 0, true, lesson.id);
+  }
+});
