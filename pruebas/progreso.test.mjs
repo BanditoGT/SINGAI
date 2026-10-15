@@ -68,3 +68,7 @@ test('las vidas vuelven a cinco cuando termina el bloqueo', () => {
   assert.equal(estadoVidas({ hearts: 0, heartsBlockedUntil: bloqueo }, Date.parse('2026-08-20T12:05:00Z')).bloqueado, true);
   assert.equal(estadoVidas({ hearts: 0, heartsBlockedUntil: bloqueo }, Date.parse('2026-08-20T12:11:00Z')).vidas, 5);
 });
+
+test('la racha nunca conserva valores negativos', () => {
+  assert.equal(calcularRacha({ streak: -4, lastActivity: '2026-09-25' }, '2026-09-25'), 0);
+});

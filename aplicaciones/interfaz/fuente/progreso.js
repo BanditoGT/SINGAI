@@ -3,10 +3,9 @@ const diasEntre = (anterior, actual) => Math.round(
 );
 
 export function calcularRacha(perfil, diaActual) {
-  if (perfil.lastActivity === diaActual) return Number(perfil.streak || 0);
-  if (perfil.lastActivity && diasEntre(perfil.lastActivity, diaActual) === 1) {
-    return Number(perfil.streak || 0) + 1;
-  }
+  const anterior = Math.max(0, Math.floor(Number(perfil?.streak) || 0));
+  if (perfil?.lastActivity === diaActual) return anterior;
+  if (perfil?.lastActivity && diasEntre(perfil.lastActivity, diaActual) === 1) return anterior + 1;
   return 1;
 }
 
