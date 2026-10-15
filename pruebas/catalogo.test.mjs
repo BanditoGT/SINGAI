@@ -44,3 +44,8 @@ test('cada lección ofrece una cantidad positiva de XP', () => {
     assert.equal(Number.isInteger(lesson.xp) && lesson.xp > 0, true, lesson.id);
   }
 });
+
+test('las rutas del catálogo apuntan a archivos MP4 públicos', () => {
+  const signs = catalog.units.flatMap(unit => unit.lessons.flatMap(lesson => lesson.signs));
+  for (const sign of signs) assert.match(sign.video, /^\/multimedia\/.+\.mp4$/i, sign.id);
+});
