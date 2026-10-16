@@ -77,3 +77,8 @@ test('una puntuación inválida recibe la XP mínima', () => {
   assert.equal(calcularXpGanada(true, 'sin-puntuacion'), 10);
   assert.equal(calcularXpGanada(true, 500), 20);
 });
+
+test('un valor de XP inválido inicia en Hierro I', () => {
+  assert.equal(obtenerRango('sin-xp').nombre, 'Hierro I');
+  assert.equal(obtenerRango(299.9).xp, 299);
+});

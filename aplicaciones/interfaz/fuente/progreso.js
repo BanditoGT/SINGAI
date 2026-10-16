@@ -39,7 +39,8 @@ export const RANGOS = ['Hierro', 'Bronce', 'Plata', 'Oro', 'Platino', 'Ascendent
 const romanos = ['I', 'II', 'III'];
 
 export function obtenerRango(xpActual) {
-  const xp = Math.max(0, Number(xpActual || 0));
+  const valor = Number(xpActual);
+  const xp = Number.isFinite(valor) ? Math.max(0, Math.floor(valor)) : 0;
   const ultimaDivision = RANGOS.length * romanos.length - 1;
   const indice = Math.min(Math.floor(xp / XP_POR_DIVISION), ultimaDivision);
   const rango = RANGOS[Math.floor(indice / 3)];
