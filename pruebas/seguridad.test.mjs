@@ -38,3 +38,9 @@ test('un token sin vencimiento es rechazado', () => {
   const token = signToken({ sub: 1 }, 'secreto', -1);
   assert.equal(verifyToken(token, 'secreto'), null);
 });
+
+test('un hash de contraseña mal formado se rechaza sin fallar', () => {
+  assert.equal(checkPassword('clave', ''), false);
+  assert.equal(checkPassword('clave', 'sin-separador'), false);
+  assert.equal(checkPassword('clave', 'sal:no-es-hexadecimal'), false);
+});
