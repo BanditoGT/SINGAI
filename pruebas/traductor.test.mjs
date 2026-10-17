@@ -23,3 +23,8 @@ test('una frase vacía no produce señas ni palabras omitidas', () => {
   const resultado = crearSecuenciaTraduccion('   ', senas);
   assert.deepEqual(resultado, { secuencia: [], deletreadas: [], omitidas: [] });
 });
+
+test('ignora acentos y signos al buscar una frase', () => {
+  const resultado = crearSecuenciaTraduccion('¿CÓMO ESTÁS?', [{ id: 'saludo', term: 'Como estas', video: '/saludo.mp4' }]);
+  assert.deepEqual(resultado.secuencia.map(item => item.id), ['saludo']);
+});
