@@ -18,3 +18,8 @@ test('prefiere una seña de frase completa antes que deletrearla', () => {
   assert.equal(resultado.secuencia.length, 1);
   assert.equal(resultado.secuencia[0].term, 'Buenos Dias');
 });
+
+test('una frase vacía no produce señas ni palabras omitidas', () => {
+  const resultado = crearSecuenciaTraduccion('   ', senas);
+  assert.deepEqual(resultado, { secuencia: [], deletreadas: [], omitidas: [] });
+});
