@@ -49,3 +49,7 @@ test('las rutas del catálogo apuntan a archivos MP4 públicos', () => {
   const signs = catalog.units.flatMap(unit => unit.lessons.flatMap(lesson => lesson.signs));
   for (const sign of signs) assert.match(sign.video, /^\/multimedia\/.+\.mp4$/i, sign.id);
 });
+
+test('las unidades mantienen un orden continuo', () => {
+  assert.deepEqual(catalog.units.map(unit => unit.order), [1, 2, 3, 4, 5]);
+});
