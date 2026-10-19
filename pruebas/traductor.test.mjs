@@ -28,3 +28,9 @@ test('ignora acentos y signos al buscar una frase', () => {
   const resultado = crearSecuenciaTraduccion('¿CÓMO ESTÁS?', [{ id: 'saludo', term: 'Como estas', video: '/saludo.mp4' }]);
   assert.deepEqual(resultado.secuencia.map(item => item.id), ['saludo']);
 });
+
+test('una palabra sin todas sus letras se omite completa', () => {
+  const resultado = crearSecuenciaTraduccion('ABC', [{ id: 'a', term: 'A' }, { id: 'b', term: 'B' }]);
+  assert.deepEqual(resultado.secuencia, []);
+  assert.deepEqual(resultado.omitidas, ['ABC']);
+});
