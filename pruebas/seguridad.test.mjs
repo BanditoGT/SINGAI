@@ -44,3 +44,11 @@ test('un hash de contraseña mal formado se rechaza sin fallar', () => {
   assert.equal(checkPassword('clave', 'sin-separador'), false);
   assert.equal(checkPassword('clave', 'sal:no-es-hexadecimal'), false);
 });
+
+test('la misma contraseña produce hashes distintos', () => {
+  const primero = hashPassword('misma-clave');
+  const segundo = hashPassword('misma-clave');
+  assert.notEqual(primero, segundo);
+  assert.equal(checkPassword('misma-clave', primero), true);
+  assert.equal(checkPassword('misma-clave', segundo), true);
+});
