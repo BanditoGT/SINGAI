@@ -53,3 +53,8 @@ test('las rutas del catálogo apuntan a archivos MP4 públicos', () => {
 test('las unidades mantienen un orden continuo', () => {
   assert.deepEqual(catalog.units.map(unit => unit.order), [1, 2, 3, 4, 5]);
 });
+
+test('los identificadores usan un formato seguro para rutas', () => {
+  const ids = catalog.units.flatMap(unit => [unit.id, ...unit.lessons.map(lesson => lesson.id), ...unit.lessons.flatMap(lesson => lesson.signs.map(sign => sign.id))]);
+  for (const id of ids) assert.match(id, /^[a-z0-9]+(?:-[a-z0-9]+)*$/, id);
+});
