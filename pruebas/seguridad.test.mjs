@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { hashPassword, checkPassword, signToken, verifyToken, tokenDigest } from '../servicios/nucleo/codigo/security.mjs';
+import { hashPassword, checkPassword, signToken, verifyToken, tokenDigest, randomToken } from '../servicios/nucleo/codigo/security.mjs';
 
 test('las contraseñas se almacenan con sal y scrypt', () => {
   const hash = hashPassword('una-clave-segura');
@@ -51,4 +51,11 @@ test('la misma contraseña produce hashes distintos', () => {
   assert.notEqual(primero, segundo);
   assert.equal(checkPassword('misma-clave', primero), true);
   assert.equal(checkPassword('misma-clave', segundo), true);
+});
+
+test('los tokens aleatorios tienen suficiente longitud y no se repiten', () => {
+  const primero = randomToken();
+  const segundo = randomToken();
+  assert.match(primero, /^[a-f0-9]{64}$/);
+  assert.notEqual(primero, segundo);
 });
