@@ -34,3 +34,9 @@ test('una palabra sin todas sus letras se omite completa', () => {
   assert.deepEqual(resultado.secuencia, []);
   assert.deepEqual(resultado.omitidas, ['ABC']);
 });
+
+test('elige la frase conocida más larga disponible', () => {
+  const datos = [{ id: 'buenos', term: 'Buenos' }, { id: 'dias', term: 'Dias' }, { id: 'frase', term: 'Buenos Dias' }];
+  const resultado = crearSecuenciaTraduccion('buenos dias', datos);
+  assert.deepEqual(resultado.secuencia.map(item => item.id), ['frase']);
+});
