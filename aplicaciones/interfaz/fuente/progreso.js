@@ -70,7 +70,9 @@ export function estadoVidas(perfil, ahora = Date.now()) {
   const bloqueo = perfil?.heartsBlockedUntil ? new Date(perfil.heartsBlockedUntil).getTime() : 0;
   if (bloqueo && bloqueo > ahora) return { vidas: 0, bloqueadoHasta: new Date(bloqueo).toISOString(), bloqueado: true };
   if (bloqueo && bloqueo <= ahora) return { vidas: VIDAS_MAXIMAS, bloqueadoHasta: null, bloqueado: false };
-  return { vidas: Math.max(0, Math.min(VIDAS_MAXIMAS, Number(perfil?.hearts ?? VIDAS_MAXIMAS))), bloqueadoHasta: null, bloqueado: false };
+  const valor = Number(perfil?.hearts ?? VIDAS_MAXIMAS);
+  const vidas = Number.isFinite(valor) ? Math.floor(valor) : VIDAS_MAXIMAS;
+  return { vidas: Math.max(0, Math.min(VIDAS_MAXIMAS, vidas)), bloqueadoHasta: null, bloqueado: false };
 }
 
 export function aplicarFallo(perfil, ahora = Date.now()) {

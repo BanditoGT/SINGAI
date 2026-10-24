@@ -82,3 +82,8 @@ test('un valor de XP inválido inicia en Hierro I', () => {
   assert.equal(obtenerRango('sin-xp').nombre, 'Hierro I');
   assert.equal(obtenerRango(299.9).xp, 299);
 });
+
+test('las vidas se mantienen enteras y dentro del límite', () => {
+  assert.equal(estadoVidas({ hearts: 3.8 }).vidas, 3);
+  assert.equal(estadoVidas({ hearts: 99 }).vidas, 5);
+});
