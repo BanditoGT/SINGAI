@@ -59,3 +59,9 @@ test('los tokens aleatorios tienen suficiente longitud y no se repiten', () => {
   assert.match(primero, /^[a-f0-9]{64}$/);
   assert.notEqual(primero, segundo);
 });
+
+test('el resumen de un token usa 64 caracteres hexadecimales', () => {
+  const resumen = tokenDigest('token-visible');
+  assert.match(resumen, /^[a-f0-9]{64}$/);
+  assert.equal(resumen.includes('token-visible'), false);
+});
