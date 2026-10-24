@@ -47,3 +47,8 @@
   button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid Highlight!important}
   .button,.lesson-node,.sign-grid>button{border:1px solid ButtonText}
 }
+
+@media(pointer:coarse){
+  button,.icon-btn,.filters button{min-height:44px}
+  .icon-btn{min-width:44px}
+}
