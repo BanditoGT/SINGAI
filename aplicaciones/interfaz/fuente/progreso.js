@@ -94,8 +94,10 @@ export function aplicarFallo(perfil, ahora = Date.now()) {
 
 export function seCompletoHoy(fecha, diaActual) {
   if (!fecha) return false;
+  const valor = new Date(fecha);
+  if (Number.isNaN(valor.getTime())) return false;
   const dia = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Guatemala', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(new Date(fecha));
+  }).format(valor);
   return dia === diaActual;
 }

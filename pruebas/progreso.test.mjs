@@ -91,3 +91,7 @@ test('las vidas se mantienen enteras y dentro del límite', () => {
 test('un perfil con XP inválida conserva un total seguro', () => {
   assert.equal(aplicarFallo({ hearts: 1, xp: 'incorrecta' }, 0).xp, 0);
 });
+
+test('una fecha inválida no cuenta como actividad de hoy', () => {
+  assert.equal(seCompletoHoy('fecha-invalida', '2026-09-25'), false);
+});
