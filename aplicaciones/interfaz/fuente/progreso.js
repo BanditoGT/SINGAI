@@ -80,7 +80,8 @@ export function aplicarFallo(perfil, ahora = Date.now()) {
   if (estado.bloqueado) return { ...estado, xp: Math.max(0, Number(perfil?.xp || 0)), xpPerdida: 0 };
   const vidas = Math.max(0, estado.vidas - 1);
   const agotadas = vidas === 0;
-  const xpAnterior = Math.max(0, Number(perfil?.xp || 0));
+  const xpValor = Number(perfil?.xp);
+  const xpAnterior = Number.isFinite(xpValor) ? Math.max(0, Math.floor(xpValor)) : 0;
   const xp = agotadas ? Math.max(0, xpAnterior - PENALIZACION_XP) : xpAnterior;
   return {
     vidas,

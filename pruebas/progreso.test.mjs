@@ -87,3 +87,7 @@ test('las vidas se mantienen enteras y dentro del límite', () => {
   assert.equal(estadoVidas({ hearts: 3.8 }).vidas, 3);
   assert.equal(estadoVidas({ hearts: 99 }).vidas, 5);
 });
+
+test('un perfil con XP inválida conserva un total seguro', () => {
+  assert.equal(aplicarFallo({ hearts: 1, xp: 'incorrecta' }, 0).xp, 0);
+});
