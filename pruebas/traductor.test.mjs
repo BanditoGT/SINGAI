@@ -40,3 +40,10 @@ test('elige la frase conocida más larga disponible', () => {
   const resultado = crearSecuenciaTraduccion('buenos dias', datos);
   assert.deepEqual(resultado.secuencia.map(item => item.id), ['frase']);
 });
+
+test('traducir no modifica la lista original de señas', () => {
+  const datos = [{ id: 'hola', term: 'Hola', video: '/hola.mp4' }];
+  const copia = structuredClone(datos);
+  crearSecuenciaTraduccion('hola', datos);
+  assert.deepEqual(datos, copia);
+});
