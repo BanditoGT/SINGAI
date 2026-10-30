@@ -7,7 +7,11 @@ const normalizar = texto => String(texto)
 
 export function crearSecuenciaTraduccion(texto, senas) {
   const palabras = normalizar(texto).split(' ').filter(Boolean);
-  const mapa = new Map(senas.map(sena => [normalizar(sena.term), sena]));
+  const mapa = new Map();
+  for (const sena of senas) {
+    const termino = normalizar(sena.term);
+    if (termino && !mapa.has(termino)) mapa.set(termino, sena);
+  }
   const maximo = Math.max(1, ...[...mapa.keys()].map(termino => termino.split(' ').length));
   const secuencia = [];
   const deletreadas = [];

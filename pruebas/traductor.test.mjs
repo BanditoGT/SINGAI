@@ -47,3 +47,8 @@ test('traducir no modifica la lista original de señas', () => {
   crearSecuenciaTraduccion('hola', datos);
   assert.deepEqual(datos, copia);
 });
+
+test('si un término está repetido conserva la primera seña', () => {
+  const datos = [{ id: 'primera', term: 'Hola' }, { id: 'segunda', term: 'HOLA' }];
+  assert.equal(crearSecuenciaTraduccion('hola', datos).secuencia[0].id, 'primera');
+});
