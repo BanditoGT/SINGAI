@@ -52,3 +52,24 @@
   button,.icon-btn,.filters button{min-height:44px}
   .icon-btn{min-width:44px}
 }
+
+/* El menú conserva sus controles cuando hay poca altura o se aumenta el zoom. */
+.sidebar{height:100vh;height:100dvh;min-height:0;overflow:hidden;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+.side-head,.side-streak,.sidebar>.logout{flex-shrink:0}
+.sidebar nav{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;margin-bottom:16px;scroll-padding-block:8px}
+.sidebar nav button{flex-shrink:0;min-height:44px}
+.side-streak{margin-top:0}
+.sidebar>.logout{min-height:44px}
+@media(max-height:650px){
+  .sidebar{padding-top:16px}
+  .sidebar nav{margin-top:16px;margin-bottom:10px;gap:2px}
+  .side-streak{padding:10px 12px}
+  .side-streak p{display:none}
+}
+
+/* Solo el anillo gira; el icono de completado permanece derecho y centrado. */
+.daily-card{gap:16px}
+.daily-card>div:first-child{min-width:0}
+.goal-ring{flex:0 0 75px;width:75px;height:75px}
+.goal-ring>svg{display:block;width:75px;height:75px;transform:rotate(-90deg)}
+.goal-ring>span>svg{width:24px;height:24px;transform:none;stroke-width:3}
