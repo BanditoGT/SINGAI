@@ -28,9 +28,11 @@ SERVICES = {
     "CORREO": ("servicios/correo/codigo/server.mjs", "http://localhost:4102/health"),
     "SEGURIDAD": ("servicios/seguridad/codigo/server.mjs", "http://localhost:4103/health"),
     "AUDITORIA": ("servicios/auditoria/codigo/server.mjs", "http://localhost:4104/health"),
+    "PRACTICA": ("servicios/practica/codigo/server.mjs", "http://localhost:4105/health"),
+    "ANALITICA": ("servicios/analitica/codigo/server.mjs", "http://localhost:4106/health"),
     "API": ("servicios/nucleo/codigo/server.mjs", "http://localhost:4100/api/health"),
 }
-REQUIRED_PORTS = (4100, 4101, 4102, 4103, 4104, 5173)
+REQUIRED_PORTS = (4100, 4101, 4102, 4103, 4104, 4105, 4106, 5173)
 COLORS = {
     "WEB": "\033[96m",
     "API": "\033[92m",
@@ -38,6 +40,8 @@ COLORS = {
     "CORREO": "\033[93m",
     "SEGURIDAD": "\033[96m",
     "AUDITORIA": "\033[94m",
+    "PRACTICA": "\033[96m",
+    "ANALITICA": "\033[95m",
     "INFO": "\033[94m",
     "ERROR": "\033[91m",
 }
@@ -96,6 +100,8 @@ def dependencies_ready() -> bool:
         ROOT / "servicios/correo/node_modules/nodemailer",
         ROOT / "servicios/seguridad/node_modules/express",
         ROOT / "servicios/auditoria/node_modules/express",
+        ROOT / "servicios/practica/node_modules/express",
+        ROOT / "servicios/analitica/node_modules/express",
     ]
     return all(path.exists() for path in required)
 

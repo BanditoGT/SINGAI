@@ -1,6 +1,6 @@
 # Arquitectura de microservicios de SingAI
 
-SingAI utiliza cinco servicios locales independientes cuando se inicia con `main.py`:
+SingAI utiliza siete servicios locales independientes cuando se inicia con `main.py`:
 
 | Servicio | Puerto | Responsabilidad |
 | --- | ---: | --- |
@@ -9,6 +9,18 @@ SingAI utiliza cinco servicios locales independientes cuando se inicia con `main
 | Correo | 4102 | Plantillas y entrega SMTP de verificación, recuperación y códigos. |
 | Seguridad | 4103 | Códigos de seis dígitos, expiración, intentos y consumo único. |
 | Auditoría | 4104 | Registro técnico de accesos aceptados y rechazados sin guardar contraseñas ni códigos. |
+| Práctica | 4105 | Evaluación de señas, puntuación, confianza y retroalimentación sin almacenar video. |
+| Analítica | 4106 | Historial de intentos, señas difíciles y recomendaciones de aprendizaje. |
+
+## Práctica guiada y analítica
+
+1. La interfaz envía al núcleo la seña esperada, la detectada y métricas calculadas por el módulo de cámara.
+2. El núcleo valida la sesión y solicita la evaluación al servicio de Práctica.
+3. Práctica calcula puntuación, confianza, retroalimentación y XP sugerida. No recibe ni almacena video.
+4. El resultado se registra en Analítica como un intento asociado al usuario.
+5. Analítica combina los intentos con el progreso de lecciones para detectar señas difíciles y recomendar el siguiente paso.
+
+Las rutas internas requieren `SERVICE_KEY`; las rutas públicas de práctica y analítica requieren una sesión válida.
 
 ## Inicio de sesión local
 

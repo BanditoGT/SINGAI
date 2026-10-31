@@ -3,7 +3,7 @@ info:
   title: SingAI API local
   version: 2.0.0
   description: |
-    Contrato verificable de los tres servicios Express incluidos en el repositorio.
+    Contrato verificable de los servicios Express incluidos en el repositorio.
     La interfaz desplegada usa Firebase directamente; esas operaciones no son
     endpoints HTTP propios y por ello no forman parte de este contrato.
 servers:
@@ -16,6 +16,8 @@ tags:
   - name: Autenticación
   - name: Perfil
   - name: Progreso
+  - name: Práctica
+  - name: Analítica
   - name: Interna - perfil
   - name: Interna - correo
 paths:
@@ -252,6 +254,51 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         '403':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/practice/evaluate:
+    post:
+      tags: [Práctica]
+      summary: Evalúa una seña detectada y devuelve retroalimentación
+      description: No recibe ni almacena video; trabaja con el resultado y métricas del detector de manos.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedSign, detectedSign, confidence]
+              properties:
+                expectedSign: { type: string, maxLength: 80 }
+                detectedSign: { type: string, maxLength: 80 }
+                confidence: { type: number, minimum: 0, maximum: 1 }
+                metrics:
+                  type: object
+                  properties:
+                    visibility: { type: number, minimum: 0, maximum: 1 }
+                    stability: { type: number, minimum: 0, maximum: 1 }
+      responses:
+        '200':
+          description: Evaluación calculada y registrada para analítica
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/analytics/summary:
+    get:
+      tags: [Analítica]
+      summary: Resume el aprendizaje y recomienda el siguiente paso
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Resumen de lecciones, práctica, señas difíciles y recomendación
+        '401':
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'

@@ -11,11 +11,19 @@ const source = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sandbox = mkdtempSync(join(tmpdir(), 'singai-integration-'));
 const linkType = process.platform === 'win32' ? 'junction' : 'dir';
 const basePort = 43100 + Math.floor(Math.random() * 1000);
-const ports = { core: basePort, profile: basePort + 1, mail: basePort + 2, security: basePort + 3, audit: basePort + 4 };
+const ports = {
+  core: basePort,
+  profile: basePort + 1,
+  mail: basePort + 2,
+  security: basePort + 3,
+  audit: basePort + 4,
+  practice: basePort + 5,
+  analytics: basePort + 6
+};
 
 mkdirSync(join(sandbox, 'servicios'), { recursive: true });
 mkdirSync(join(sandbox, 'datos'), { recursive: true });
-for (const service of ['nucleo', 'perfil', 'correo', 'seguridad', 'auditoria']) {
+for (const service of ['nucleo', 'perfil', 'correo', 'seguridad', 'auditoria', 'practica', 'analitica']) {
   const target = join(sandbox, 'servicios', service);
   mkdirSync(target, { recursive: true });
   cpSync(join(source, 'servicios', service, 'codigo'), join(target, 'codigo'), { recursive: true });
@@ -32,10 +40,14 @@ const env = {
   MAIL_PORT: String(ports.mail),
   SECURITY_PORT: String(ports.security),
   AUDIT_PORT: String(ports.audit),
+  PRACTICE_PORT: String(ports.practice),
+  ANALYTICS_PORT: String(ports.analytics),
   PROFILE_URL: `http://127.0.0.1:${ports.profile}`,
   MAIL_URL: `http://127.0.0.1:${ports.mail}`,
   SECURITY_URL: `http://127.0.0.1:${ports.security}`,
   AUDIT_URL: `http://127.0.0.1:${ports.audit}`,
+  PRACTICE_URL: `http://127.0.0.1:${ports.practice}`,
+  ANALYTICS_URL: `http://127.0.0.1:${ports.analytics}`,
   PUBLIC_APP_URL: 'http://127.0.0.1:5173',
   WEB_ORIGIN: 'http://127.0.0.1:5173',
   JWT_SECRET: 'integration-only-secret-not-for-deployment',
@@ -88,13 +100,17 @@ try {
   start('servicios/correo/codigo/server.mjs');
   start('servicios/seguridad/codigo/server.mjs');
   start('servicios/auditoria/codigo/server.mjs');
+  start('servicios/practica/codigo/server.mjs');
+  start('servicios/analitica/codigo/server.mjs');
   start('servicios/nucleo/codigo/server.mjs');
   await Promise.all([
     waitFor(`http://127.0.0.1:${ports.core}/api/health`),
     waitFor(`http://127.0.0.1:${ports.profile}/health`),
     waitFor(`http://127.0.0.1:${ports.mail}/health`),
     waitFor(`http://127.0.0.1:${ports.security}/health`),
-    waitFor(`http://127.0.0.1:${ports.audit}/health`)
+    waitFor(`http://127.0.0.1:${ports.audit}/health`),
+    waitFor(`http://127.0.0.1:${ports.practice}/health`),
+    waitFor(`http://127.0.0.1:${ports.analytics}/health`)
   ]);
 
   const health = {
@@ -102,7 +118,9 @@ try {
     profile: await request(`http://127.0.0.1:${ports.profile}/health`),
     mail: await request(`http://127.0.0.1:${ports.mail}/health`),
     security: await request(`http://127.0.0.1:${ports.security}/health`),
-    audit: await request(`http://127.0.0.1:${ports.audit}/health`)
+    audit: await request(`http://127.0.0.1:${ports.audit}/health`),
+    practice: await request(`http://127.0.0.1:${ports.practice}/health`),
+    analytics: await request(`http://127.0.0.1:${ports.analytics}/health`)
   };
   const catalog = await request(`http://127.0.0.1:${ports.core}/api/catalog`);
   const email = `probe-${Date.now()}@example.test`;
@@ -136,6 +154,18 @@ try {
   const complete = await request(`http://127.0.0.1:${ports.core}/api/progress/complete`, {
     method: 'POST',
     ...json({ lessonId: 'probe-lesson', score: 90 }, { authorization: `Bearer ${bearer}` })
+  });
+  const practice = await request(`http://127.0.0.1:${ports.core}/api/practice/evaluate`, {
+    method: 'POST',
+    ...json({
+      expectedSign: 'Hola',
+      detectedSign: 'hola',
+      confidence: 0.93,
+      metrics: { visibility: 0.9, stability: 0.88 }
+    }, { authorization: `Bearer ${bearer}` })
+  });
+  const analytics = await request(`http://127.0.0.1:${ports.core}/api/analytics/summary`, {
+    headers: { authorization: `Bearer ${bearer}` }
   });
   const denied = await request(`http://127.0.0.1:${ports.profile}/internal/profile`, {
     headers: { 'x-user-id': '1' }
@@ -180,6 +210,18 @@ try {
       firstCompletion: complete.body.firstCompletion,
       xp: complete.body.progress?.xp,
       streak: complete.body.progress?.streak
+    },
+    practice: {
+      status: practice.status,
+      correct: practice.body.evaluation?.correct,
+      score: practice.body.evaluation?.score,
+      videoStored: practice.body.evaluation?.privacy?.videoStored,
+      analyticsRecorded: practice.body.analyticsRecorded
+    },
+    analytics: {
+      status: analytics.status,
+      practiceAttempts: analytics.body.summary?.overview?.practiceAttempts,
+      recommendation: analytics.body.summary?.recommendation
     },
     internalWithoutKey: { status: denied.status, error: denied.body.error }
   }, null, 2));

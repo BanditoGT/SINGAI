@@ -18,6 +18,8 @@ const profileUrl = process.env.PROFILE_URL || 'http://localhost:4101';
 const mailUrl = process.env.MAIL_URL || 'http://localhost:4102';
 const securityUrl = process.env.SECURITY_URL || 'http://localhost:4103';
 const auditUrl = process.env.AUDIT_URL || 'http://localhost:4104';
+const practiceUrl = process.env.PRACTICE_URL || 'http://localhost:4105';
+const analyticsUrl = process.env.ANALYTICS_URL || 'http://localhost:4106';
 const publicAppUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173';
 
 const db = new DatabaseSync(join(root, 'datos', 'auth.db'));
@@ -44,11 +46,25 @@ function auth(req, res, next) {
   req.user = payload;
   next();
 }
-async function internalPost(url, body) {
-  const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-service-key': serviceKey }, body: JSON.stringify(body) });
-  if (!response.ok) throw new Error(`Servicio no disponible (${response.status})`);
-  return response.json();
+async function internalRequest(url, { method = 'GET', body, userId } = {}) {
+  const response = await fetch(url, {
+    method,
+    headers: {
+      'content-type': 'application/json',
+      'x-service-key': serviceKey,
+      ...(userId ? { 'x-user-id': String(userId) } : {})
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload.error || `Servicio no disponible (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
 }
+const internalPost = (url, body, options = {}) => internalRequest(url, { ...options, method: 'POST', body });
 function audit(type, outcome, userId, req) {
   internalPost(`${auditUrl}/internal/events`, { type, outcome, userId, ipHint: tokenDigest(req.ip || '').slice(0, 16) }).catch(error => console.error(`Auditoría: ${error.message}`));
 }
@@ -183,6 +199,35 @@ app.patch('/api/profile', auth, (req, res) => profileProxy(req, res, '/internal/
 app.get('/api/progress', auth, (req, res) => profileProxy(req, res, '/internal/progress'));
 app.post('/api/progress/complete', auth, (req, res) => profileProxy(req, res, '/internal/progress/complete', 'POST'));
 app.post('/api/progress/mistake', auth, (req, res) => profileProxy(req, res, '/internal/progress/mistake', 'POST'));
+app.post('/api/practice/evaluate', auth, async (req, res) => {
+  try {
+    const result = await internalPost(`${practiceUrl}/internal/evaluations`, req.body, { userId: req.user.sub });
+    let analyticsRecorded = true;
+    try {
+      await internalPost(`${analyticsUrl}/internal/attempts`, result, { userId: req.user.sub });
+    } catch (error) {
+      analyticsRecorded = false;
+      console.error(`Analítica: ${error.message}`);
+    }
+    audit('practice_evaluation', result.evaluation.correct ? 'accepted' : 'retry', req.user.sub, req);
+    res.json({ ...result, analyticsRecorded });
+  } catch (error) {
+    const status = [400, 429].includes(error.status) ? error.status : 503;
+    res.status(status).json({ error: error.message || 'El servicio de práctica no está disponible.' });
+  }
+});
+app.get('/api/analytics/summary', auth, async (req, res) => {
+  try {
+    const progress = await internalRequest(`${profileUrl}/internal/progress`, { userId: req.user.sub });
+    const result = await internalPost(`${analyticsUrl}/internal/summary`, {
+      profile: progress.profile,
+      lessons: progress.lessons
+    }, { userId: req.user.sub });
+    res.json(result);
+  } catch (error) {
+    res.status(503).json({ error: error.message || 'El servicio de analítica no está disponible.' });
+  }
+});
 
 app.use((err, _req, res, _next) => { console.error(err); res.status(500).json({ error: 'Ocurrió un error inesperado.' }); });
 app.listen(port, () => console.log(`Core API en http://localhost:${port}`));
