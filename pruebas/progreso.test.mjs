@@ -55,18 +55,43 @@ test('la guía contiene los 24 rangos y su XP necesaria', () => {
 
 test('el quinto fallo bloquea diez minutos y descuenta XP sin bajar de cero', () => {
   const ahora = Date.parse('2026-08-20T12:00:00Z');
-  const fallo = aplicarFallo({ hearts: 1, xp: 80 }, ahora);
+  const fallo = aplicarFallo({ hearts: 1, xp: 80, heartsRecoveryAt: new Date(ahora + 600000).toISOString() }, ahora);
   assert.equal(fallo.vidas, 0);
   assert.equal(fallo.xp, 55);
   assert.equal(fallo.xpPerdida, 25);
   assert.equal(new Date(fallo.bloqueadoHasta).getTime() - ahora, 10 * 60000);
-  assert.equal(aplicarFallo({ hearts: 1, xp: 10 }, ahora).xp, 0);
+  assert.equal(aplicarFallo({ hearts: 1, xp: 10, heartsRecoveryAt: new Date(ahora + 600000).toISOString() }, ahora).xp, 0);
 });
 
-test('las vidas vuelven a cinco cuando termina el bloqueo', () => {
+test('al terminar el bloqueo vuelve una vida y continúa la recarga', () => {
   const bloqueo = '2026-08-20T12:10:00.000Z';
   assert.equal(estadoVidas({ hearts: 0, heartsBlockedUntil: bloqueo }, Date.parse('2026-08-20T12:05:00Z')).bloqueado, true);
-  assert.equal(estadoVidas({ hearts: 0, heartsBlockedUntil: bloqueo }, Date.parse('2026-08-20T12:11:00Z')).vidas, 5);
+  assert.equal(estadoVidas({ hearts: 0, heartsBlockedUntil: bloqueo }, Date.parse('2026-08-20T12:11:00Z')).vidas, 1);
+});
+
+test('la primera vida perdida inicia la recarga y otro fallo no reinicia el contador', () => {
+  const now = Date.parse('2026-10-31T12:00:00Z');
+  const first = aplicarFallo({ hearts: 5, xp: 80 }, now);
+  assert.equal(first.vidas, 4);
+  assert.equal(first.recuperaEn, '2026-10-31T12:10:00.000Z');
+  const second = aplicarFallo({ hearts: first.vidas, heartsRecoveryAt: first.recuperaEn, xp: first.xp }, now + 120000);
+  assert.equal(second.vidas, 3);
+  assert.equal(second.recuperaEn, first.recuperaEn);
+  const restored = estadoVidas({ hearts: second.vidas, heartsRecoveryAt: second.recuperaEn }, now + 600000);
+  assert.equal(restored.vidas, 4);
+  assert.equal(restored.recuperaEn, '2026-10-31T12:20:00.000Z');
+});
+
+test('recupera varias vidas sin conexión y detiene el contador al llegar a cinco', () => {
+  const profile = { hearts: 1, heartsRecoveryAt: '2026-10-31T12:10:00Z' };
+  assert.equal(estadoVidas(profile, Date.parse('2026-10-31T12:30:00Z')).vidas, 4);
+  const full = estadoVidas(profile, Date.parse('2026-11-02T12:00:00Z'));
+  assert.equal(full.vidas, 5);
+  assert.equal(full.recuperaEn, null);
+});
+
+test('un perfil antiguo sin contador recibe sus cinco vidas inicialmente', () => {
+  assert.equal(estadoVidas({ hearts: 4 }).vidas, 5);
 });
 
 test('la racha nunca conserva valores negativos', () => {
@@ -84,7 +109,7 @@ test('un valor de XP inválido inicia en Hierro I', () => {
 });
 
 test('las vidas se mantienen enteras y dentro del límite', () => {
-  assert.equal(estadoVidas({ hearts: 3.8 }).vidas, 3);
+  assert.equal(estadoVidas({ hearts: 3.8, heartsRecoveryAt: '2099-01-01T00:00:00Z' }).vidas, 3);
   assert.equal(estadoVidas({ hearts: 99 }).vidas, 5);
 });
 

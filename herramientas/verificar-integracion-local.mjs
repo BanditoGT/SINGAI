@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import assert from 'node:assert/strict';
 
 const source = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sandbox = mkdtempSync(join(tmpdir(), 'singai-integration-'));
@@ -31,6 +32,9 @@ for (const service of ['nucleo', 'perfil', 'correo', 'seguridad', 'auditoria', '
   if (existsSync(join(source, 'servicios', service, 'node_modules'))) symlinkSync(join(source, 'servicios', service, 'node_modules'), join(target, 'node_modules'), linkType);
 }
 cpSync(join(source, 'datos', 'catalog.json'), join(sandbox, 'datos', 'catalog.json'));
+mkdirSync(join(sandbox, 'aplicaciones', 'interfaz', 'fuente'), { recursive: true });
+cpSync(join(source, 'aplicaciones', 'interfaz', 'fuente', 'progreso.js'), join(sandbox, 'aplicaciones', 'interfaz', 'fuente', 'progreso.js'));
+cpSync(join(source, 'package.json'), join(sandbox, 'package.json'));
 symlinkSync(join(source, 'node_modules'), join(sandbox, 'node_modules'), linkType);
 
 const env = {
@@ -155,6 +159,16 @@ try {
     method: 'POST',
     ...json({ lessonId: 'probe-lesson', score: 90 }, { authorization: `Bearer ${bearer}` })
   });
+  const mistake = () => request(`http://127.0.0.1:${ports.core}/api/progress/mistake`, {
+    method: 'POST', ...json({}, { authorization: `Bearer ${bearer}` })
+  });
+  const firstMistake = await mistake();
+  const secondMistake = await mistake();
+  assert.equal(firstMistake.body.vidas, 4);
+  assert.equal(secondMistake.body.vidas, 3);
+  assert.ok(firstMistake.body.recuperaEn);
+  assert.equal(secondMistake.body.recuperaEn, firstMistake.body.recuperaEn);
+  assert.equal(secondMistake.body.progress.heartsRecoveryAt, firstMistake.body.recuperaEn);
   const practice = await request(`http://127.0.0.1:${ports.core}/api/practice/evaluate`, {
     method: 'POST',
     ...json({

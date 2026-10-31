@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
+import { estadoVidas, aplicarFallo } from '../../../aplicaciones/interfaz/fuente/progreso.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 dotenv.config({ path: join(root, '.env'), override: false });
@@ -19,7 +20,7 @@ for (const [name, definition] of Object.entries({
   weekly_goal: 'INTEGER NOT NULL DEFAULT 5', experience_level: "TEXT NOT NULL DEFAULT 'principiante'",
   preferred_category: "TEXT NOT NULL DEFAULT 'abecedario'", bio: "TEXT NOT NULL DEFAULT ''",
   autoplay_videos: 'INTEGER NOT NULL DEFAULT 1'
-  , hearts: 'INTEGER NOT NULL DEFAULT 5', hearts_blocked_until: 'TEXT'
+  , hearts: 'INTEGER NOT NULL DEFAULT 5', hearts_blocked_until: 'TEXT', hearts_recovery_at: 'TEXT'
 })) if (!profileColumns.has(name)) db.exec(`ALTER TABLE profiles ADD COLUMN ${name} ${definition}`);
 const app = express(); app.use(express.json({ limit: '32kb' }));
 app.use('/internal', (req, res, next) => req.headers['x-service-key'] === serviceKey ? next() : res.status(403).json({ error: 'Acceso interno denegado.' }));
@@ -39,6 +40,13 @@ const normalizeStreak = row => {
 };
 const shape = row => ({ userId: row.user_id, displayName: row.display_name, avatar: row.avatar, learningGoal: row.learning_goal, dailyGoal: row.daily_goal, weeklyGoal: row.weekly_goal, experienceLevel: row.experience_level, preferredCategory: row.preferred_category, bio: row.bio, autoplayVideos: Boolean(row.autoplay_videos), xp: row.xp, streak: row.streak, longestStreak: row.longest_streak, lastActivity: row.last_activity, hearts: row.hearts ?? 5, heartsBlockedUntil: row.hearts_blocked_until || null });
 
+const withLives = row => {
+  if (!row) return row;
+  const state = estadoVidas({ hearts: row.hearts, heartsBlockedUntil: row.hearts_blocked_until, heartsRecoveryAt: row.hearts_recovery_at });
+  db.prepare('UPDATE profiles SET hearts=?,hearts_blocked_until=?,hearts_recovery_at=? WHERE user_id=?')
+    .run(state.vidas, state.bloqueadoHasta, state.recuperaEn, row.user_id);
+  return { ...shape(row), hearts: state.vidas, heartsBlockedUntil: state.bloqueadoHasta, heartsRecoveryAt: state.recuperaEn };
+};
 app.get('/health', (_req, res) => res.json({ service: 'profile', status: 'ok' }));
 app.post('/internal/profiles', (req, res) => {
   const name = String(req.body.displayName || '').trim().slice(0, 60);
@@ -47,7 +55,7 @@ app.post('/internal/profiles', (req, res) => {
 });
 app.get('/internal/profile', (req, res) => {
   const row = normalizeStreak(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req)));
-  row ? res.json({ profile: shape(row) }) : res.status(404).json({ error: 'Perfil no encontrado.' });
+  row ? res.json({ profile: withLives(row) }) : res.status(404).json({ error: 'Perfil no encontrado.' });
 });
 app.patch('/internal/profile', (req, res) => {
   const current = db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req));
@@ -62,12 +70,12 @@ app.patch('/internal/profile', (req, res) => {
   const autoplay = req.body.autoplayVideos === undefined ? current.autoplay_videos : Number(Boolean(req.body.autoplayVideos));
   const avatar = ['wave','duck','unicorn','chick','fox','panda','frog','cat','dog','koala','butterfly','spark','heart','star','book','rocket','sun'].includes(req.body.avatar) ? req.body.avatar : current.avatar;
   db.prepare('UPDATE profiles SET display_name=?,learning_goal=?,daily_goal=?,weekly_goal=?,experience_level=?,preferred_category=?,bio=?,autoplay_videos=?,avatar=? WHERE user_id=?').run(name, goal, daily, weekly, experience, category, bio, autoplay, avatar, uid(req));
-  res.json({ profile: shape(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req))) });
+  res.json({ profile: withLives(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req))) });
 });
 app.get('/internal/progress', (req, res) => {
   const profile = normalizeStreak(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(uid(req)));
   const lessons = db.prepare('SELECT lesson_id AS lessonId,score,attempts,completed_at AS completedAt FROM lesson_progress WHERE user_id=? ORDER BY completed_at DESC').all(uid(req));
-  res.json({ profile: profile ? shape(profile) : null, lessons, completedLessonIds: lessons.map(x => x.lessonId) });
+  res.json({ profile: profile ? withLives(profile) : null, lessons, completedLessonIds: lessons.map(x => x.lessonId) });
 });
 app.post('/internal/progress/complete', (req, res) => {
   const userId = uid(req); const lessonId = String(req.body.lessonId || '').slice(0, 80); const score = Math.max(0, Math.min(100, Number(req.body.score || 0))); const xpEarned = score >= 80 ? 20 : 10;
@@ -78,19 +86,15 @@ app.post('/internal/progress/complete', (req, res) => {
   const currentDay = today(); let streak = profile.streak;
   if (profile.last_activity !== currentDay) streak = profile.last_activity && daysBetween(profile.last_activity, currentDay) === 1 ? streak + 1 : 1;
   db.prepare('UPDATE profiles SET xp=xp+?,streak=?,longest_streak=MAX(longest_streak,?),last_activity=? WHERE user_id=?').run(existing ? 2 : xpEarned, streak, streak, currentDay, userId);
-  res.json({ progress: shape(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(userId)), firstCompletion: !existing });
+  res.json({ progress: withLives(db.prepare('SELECT * FROM profiles WHERE user_id=?').get(userId)), firstCompletion: !existing });
 });
 app.post('/internal/progress/mistake', (req, res) => {
   const userId = uid(req); const row = db.prepare('SELECT * FROM profiles WHERE user_id=?').get(userId);
   if (!row) return res.status(404).json({ error: 'Perfil no encontrado.' });
-  const blockedUntil = row.hearts_blocked_until ? new Date(row.hearts_blocked_until).getTime() : 0;
-  if (blockedUntil > Date.now()) return res.json({ progress: shape(row), vidas: 0, bloqueado: true, bloqueadoHasta: row.hearts_blocked_until, xpPerdida: 0 });
-  const available = blockedUntil ? 5 : Math.max(0, Math.min(5, Number(row.hearts ?? 5)));
-  const hearts = Math.max(0, available - 1); const exhausted = hearts === 0;
-  const xp = exhausted ? Math.max(0, Number(row.xp || 0) - 25) : Number(row.xp || 0);
-  const until = exhausted ? new Date(Date.now() + 10 * 60000).toISOString() : null;
-  db.prepare('UPDATE profiles SET hearts=?,hearts_blocked_until=?,xp=? WHERE user_id=?').run(hearts, until, xp, userId);
+  const failure = aplicarFallo(withLives(row));
+  db.prepare('UPDATE profiles SET hearts=?,hearts_blocked_until=?,hearts_recovery_at=?,xp=? WHERE user_id=?')
+    .run(failure.vidas, failure.bloqueadoHasta, failure.recuperaEn, failure.xp, userId);
   const updated = db.prepare('SELECT * FROM profiles WHERE user_id=?').get(userId);
-  res.json({ progress: shape(updated), vidas: hearts, bloqueado: exhausted, bloqueadoHasta: until, xpPerdida: exhausted ? Number(row.xp || 0) - xp : 0 });
+  res.json({ ...failure, progress: withLives(updated) });
 });
 app.listen(port, () => console.log(`Profile service en http://localhost:${port}`));

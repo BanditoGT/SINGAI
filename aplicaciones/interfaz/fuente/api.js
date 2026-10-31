@@ -215,7 +215,7 @@ async function profileApi(path, method, body) {
     const result = await runTransaction(db, async transaction => {
       const snapshot = await transaction.get(profileRef);
       const failure = aplicarFallo(snapshot.data(), Date.now());
-      transaction.update(profileRef, { hearts: failure.vidas, heartsBlockedUntil: failure.bloqueadoHasta, xp: failure.xp });
+      transaction.update(profileRef, { hearts: failure.vidas, heartsBlockedUntil: failure.bloqueadoHasta, heartsRecoveryAt: failure.recuperaEn, xp: failure.xp });
       return failure;
     });
     const updated = normalizarPerfil((await getDoc(profileRef)).data());
@@ -295,7 +295,7 @@ async function socialApi(path, method, body) {
 
 function normalizarPerfil(profile) {
   const estado = estadoVidas(profile);
-  return { ...profile, streak: rachaVigente(profile, today()), hearts: estado.vidas, heartsBlockedUntil: estado.bloqueadoHasta };
+  return { ...profile, streak: rachaVigente(profile, today()), hearts: estado.vidas, heartsBlockedUntil: estado.bloqueadoHasta, heartsRecoveryAt: estado.recuperaEn };
 }
 
 export async function api(path, options = {}) {

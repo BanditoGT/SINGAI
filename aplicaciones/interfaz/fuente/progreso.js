@@ -67,12 +67,19 @@ export function listarRangos() {
 }
 
 export function estadoVidas(perfil, ahora = Date.now()) {
-  const bloqueo = perfil?.heartsBlockedUntil ? new Date(perfil.heartsBlockedUntil).getTime() : 0;
-  if (bloqueo && bloqueo > ahora) return { vidas: 0, bloqueadoHasta: new Date(bloqueo).toISOString(), bloqueado: true };
-  if (bloqueo && bloqueo <= ahora) return { vidas: VIDAS_MAXIMAS, bloqueadoHasta: null, bloqueado: false };
   const valor = Number(perfil?.hearts ?? VIDAS_MAXIMAS);
-  const vidas = Number.isFinite(valor) ? Math.floor(valor) : VIDAS_MAXIMAS;
-  return { vidas: Math.max(0, Math.min(VIDAS_MAXIMAS, vidas)), bloqueadoHasta: null, bloqueado: false };
+  let vidas = Math.max(0, Math.min(VIDAS_MAXIMAS, Number.isFinite(valor) ? Math.floor(valor) : VIDAS_MAXIMAS));
+  const intervalo = MINUTOS_BLOQUEO * 60000;
+  let siguiente = Date.parse(perfil?.heartsRecoveryAt || perfil?.heartsBlockedUntil || '');
+  // Los perfiles anteriores sin fecha de recarga reciben una recarga inicial.
+  if (vidas < VIDAS_MAXIMAS && !Number.isFinite(siguiente)) vidas = VIDAS_MAXIMAS;
+  if (vidas < VIDAS_MAXIMAS && siguiente <= ahora) {
+    const recuperadas = Math.floor((ahora - siguiente) / intervalo) + 1;
+    vidas = Math.min(VIDAS_MAXIMAS, vidas + recuperadas);
+    siguiente += recuperadas * intervalo;
+  }
+  const recuperaEn = vidas < VIDAS_MAXIMAS ? new Date(siguiente).toISOString() : null;
+  return { vidas, recuperaEn, bloqueadoHasta: vidas === 0 ? recuperaEn : null, bloqueado: vidas === 0 };
 }
 
 export function aplicarFallo(perfil, ahora = Date.now()) {
@@ -86,7 +93,8 @@ export function aplicarFallo(perfil, ahora = Date.now()) {
   return {
     vidas,
     bloqueado: agotadas,
-    bloqueadoHasta: agotadas ? new Date(ahora + MINUTOS_BLOQUEO * 60000).toISOString() : null,
+    bloqueadoHasta: agotadas ? estado.recuperaEn || new Date(ahora + MINUTOS_BLOQUEO * 60000).toISOString() : null,
+    recuperaEn: estado.recuperaEn || new Date(ahora + MINUTOS_BLOQUEO * 60000).toISOString(),
     xp,
     xpPerdida: xpAnterior - xp
   };
