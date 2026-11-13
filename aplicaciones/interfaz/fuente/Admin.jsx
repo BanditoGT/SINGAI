@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Play, X } from 'lucide-react';
 import SignVideo from './SignVideo.jsx';
 import Notifications from './Notifications.jsx';
+import ReminderDelivery from './ReminderDelivery.jsx';
 import { adminApi, adminReset } from './api.js';
 import './admin.css';
 
@@ -21,6 +22,7 @@ export default function Admin({ catalog, onPublish, owner }) {
   const [notice, setNotice] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [reminderUser, setReminderUser] = useState(null);
+  const [deliveryRefresh,setDeliveryRefresh] = useState(0);
   const [versions, setVersions] = useState([]);
   const [preview, setPreview] = useState(null);
   const dialog = useRef(null);
@@ -140,29 +142,11 @@ export default function Admin({ catalog, onPublish, owner }) {
       )}
     </section> : tab === 'notificaciones' && owner ? <Notifications catalog={catalog}/> : <section className="admin-card">
       <p className="muted">Cada cuenta usa el horario general salvo que le asignes uno propio.</p>
-      {reminderUser && <div className="admin-card reminders-panel">
-        <h3>Recordatorios de {reminderUser.name || reminderUser.email}</h3>
-        <label>Horario (Guatemala)<select value={reminderUser.reminderHour ?? ''} onChange={e=>setReminderUser(u=>({...u,reminderHour:e.target.value === '' ? null : Number(e.target.value)}))}>
-          <option value="">Usar horario general</option>
-          {Array.from({length:13},(_,i)=>i+8).map(h=><option key={h} value={h}>Todos los días a las {h}:17</option>)}
-        </select></label>
-        <div className="admin-actions">
-          <button disabled={busy} onClick={()=>run(async()=>{
-            const saved=await adminApi('/users/'+encodeURIComponent(reminderUser.uid)+'/reminders',{method:'PATCH',data:{enabled:reminderUser.streakReminder,hour:reminderUser.reminderHour ?? null}});
-            setUsers(list=>list.map(u=>u.uid===saved.uid?saved:u));setReminderUser(null);
-          },'Horario guardado.')}>Guardar horario</button>
-          {owner && <button disabled={busy || !reminderUser.streakReminder || reminderUser.disabled || !reminderUser.verified} onClick={()=>setConfirm({
-            text:'Poner en cola un correo para '+reminderUser.email,
-            action:()=>run(()=>adminApi('/notifications/test',{method:'POST',data:{uid:reminderUser.uid}}),'Correo en cola para la próxima revisión.')
-          })}>Solicitar envío individual</button>}
-          <button onClick={()=>setReminderUser(null)}>Cerrar</button>
-        </div>
-      </div>}
       {field('Buscar entre las cuentas cargadas', query, setQuery, {type:'search'})}
       {users.filter(u => (u.email+' '+u.name).toLowerCase().includes(query.trim().toLowerCase())).map(user => <article className="admin-user" key={user.uid}>
         <div><strong>{user.name || user.email}</strong><div>{user.email}</div><small>{user.admin ? 'Administrador' : 'Estudiante'} · {user.disabled ? 'Desactivada' : 'Activa'} · {user.verified ? 'Correo verificado' : 'Correo sin verificar'}</small></div>
         <div className="admin-actions">
-          {user.hasProfile && <button disabled={busy || !!confirm} onClick={()=>setReminderUser(user)}>Configurar recordatorios · {user.reminderHour != null ? user.reminderHour + ':17' : 'Horario general'}</button>}
+          {user.hasProfile && <button disabled={busy || !!confirm} aria-expanded={reminderUser?.uid===user.uid} onClick={()=>setReminderUser(reminderUser?.uid===user.uid ? null : user)}>Configurar recordatorios · {user.reminderHour != null ? user.reminderHour + ':00' : 'Horario general'}</button>}
           {user.hasProfile && <button aria-pressed={user.streakReminder} disabled={busy || !!confirm || (!user.streakReminder && (user.disabled || !user.verified))} onClick={() => setConfirm({
             text:`${user.streakReminder ? 'Desactivar' : 'Activar'} recordatorios de racha para ${user.email}`,
             action: () => run(async () => {
@@ -175,6 +159,25 @@ export default function Admin({ catalog, onPublish, owner }) {
           {owner && <button disabled={busy || !!confirm} onClick={() => changeUser(user, {admin:!user.admin}, user.admin ? 'Quitar rol de administrador' : 'Asignar rol de administrador')}>{user.admin ? 'Quitar rol' : 'Hacer administrador'}</button>}
           {!user.admin && <button disabled={busy || !!confirm} onClick={() => changeUser(user, null, 'Eliminar cuenta de acceso de forma permanente')}>Eliminar</button>}
         </div>
+      {reminderUser?.uid === user.uid && <div className="admin-card reminders-panel">
+        <h3>Recordatorios de {reminderUser.name || reminderUser.email}</h3>
+        <label>Horario (Guatemala)<select value={reminderUser.reminderHour ?? ''} onChange={e=>setReminderUser(u=>({...u,reminderHour:e.target.value === '' ? null : Number(e.target.value)}))}>
+          <option value="">Usar horario general</option>
+          {Array.from({length:13},(_,i)=>i+8).map(h=><option key={h} value={h}>Todos los días a las {h}:00</option>)}
+        </select></label>
+        <div className="admin-actions">
+          <button disabled={busy} onClick={()=>run(async()=>{
+            const saved=await adminApi('/users/'+encodeURIComponent(reminderUser.uid)+'/reminders',{method:'PATCH',data:{enabled:reminderUser.streakReminder,hour:reminderUser.reminderHour ?? null}});
+            setUsers(list=>list.map(u=>u.uid===saved.uid?saved:u));setReminderUser(null);
+          },'Horario guardado.')}>Guardar horario</button>
+          {owner && <button disabled={busy || !reminderUser.streakReminder || reminderUser.disabled || !reminderUser.verified} onClick={()=>setConfirm({
+            text:'Solicitar un correo para '+reminderUser.email,
+            action:()=>run(async()=>{await adminApi('/notifications/test',{method:'POST',data:{uid:reminderUser.uid}});setDeliveryRefresh(n=>n+1);})
+          })}>Solicitar envío individual</button>}
+          <button onClick={()=>setReminderUser(null)}>Cerrar</button>
+        </div>
+        {owner && <ReminderDelivery uid={user.uid} refresh={deliveryRefresh}/>}
+      </div>}
       </article>)}
       {cursor && <button disabled={busy || !!confirm} onClick={() => loadUsers(cursor)}>Cargar más cuentas</button>}
       {busy && <p role="status">Procesando… El primer acceso puede tardar.</p>}

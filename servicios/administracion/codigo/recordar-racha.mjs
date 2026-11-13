@@ -25,28 +25,43 @@ const hour = Number(new Intl.DateTimeFormat('en-GB',{timeZone:zone,hour:'2-digit
 const settings = (await db.doc('notificaciones/configuracion').get()).data() ?? defaults;
 const status = db.doc('notificaciones/estado');
 const testRef = db.doc('notificaciones/prueba');
-const pending = (await testRef.get()).data();
+
 const manual = process.env.SINGAI_TEST_MAIL === 'true';
 const lesson = settings.reason === 'leccion' ? ((await db.doc('catalogo/publicado').get()).data() ??
   JSON.parse(readFileSync(new URL('../../../datos/catalog.json', import.meta.url),'utf8'))).units
   .flatMap(unit => unit.lessons).find(item => item.id === settings.lessonId) : null;
 try {
-  if (settings.sender && settings.sender !== SMTP_USER.trim().toLowerCase()) throw Object.assign(new Error('Remitente distinto al secreto SMTP'),{code:'sender-mismatch'});
-  if (manual || pending?.state === 'pending') {
-    const owner = manual ? await auth.getUserByEmail('juuandiego222@gmail.com') : await auth.getUser(pending.uid);
-    if (!owner.emailVerified || owner.disabled || !owner.email || (manual && owner.customClaims?.owner !== true)) throw new Error('Cuenta no disponible');
-    const profile = (await db.doc(`profiles/${owner.uid}`).get()).data() ?? {};
-    if (!manual && owner.customClaims?.owner !== true && profile.streakReminder !== true) throw new Error('Recordatorios desactivados');
+  async function sendTo(user, isTest) {
+    if (settings.sender && settings.sender !== SMTP_USER.trim().toLowerCase()) throw Object.assign(new Error('Remitente distinto al secreto SMTP'),{code:'sender-mismatch'});
+    if (!user.emailVerified || user.disabled || !user.email) throw new Error('Cuenta no disponible');
+    const profile = (await db.doc(`profiles/${user.uid}`).get()).data() ?? {};
+    if (!isTest && user.customClaims?.owner !== true && profile.streakReminder !== true) throw new Error('Recordatorios desactivados');
     const streak = [today,yesterday].includes(profile.lastActivity) ? Math.max(0,Number(profile.streak)||0) : 0;
-    const message = makeMessage(settings,streak,lesson?.title,profile.displayName || owner.displayName || 'estudiante');
-    if (!manual) await testRef.update({state:'processing'});
-    await mail.sendMail({from:{name:'SingAI',address:SMTP_USER},to:owner.email,...message,subject:manual ? '[Prueba] ' + message.subject : message.subject});
-    if (!manual) await testRef.update({state:'sent'});
+    const message = makeMessage(settings,streak,lesson?.title,profile.displayName || user.displayName || 'estudiante');
+    await mail.sendMail({from:{name:'SingAI',address:SMTP_USER},to:user.email,...message,subject:isTest ? '[Prueba] ' + message.subject : message.subject});
+  }
+  if (manual) {
+    const owner = await auth.getUserByEmail('juuandiego222@gmail.com');
+    if (owner.customClaims?.owner !== true) throw new Error('Cuenta administradora no disponible');
+    await sendTo(owner,true);
     await status.set({test:'sent',testAt:new Date().toISOString()},{merge:true});
     console.log('Gmail aceptó la prueba para el administrador.');
-    if (manual) process.exit(0);
+    process.exit(0);
+  }
+  const queued = await db.collection('recordatoriosManuales').where('state','==','pending').limit(20).get();
+  const legacy = await testRef.get();
+  for (const job of [...queued.docs,...(legacy.data()?.state === 'pending' ? [legacy] : [])]) {
+    try {
+      await job.ref.update({state:'processing'});
+      await sendTo(await auth.getUser(job.data().uid),false);
+      await job.ref.update({state:'sent',finishedAt:Date.now()});
+    } catch (error) {
+      await job.ref.update({state:'failed',finishedAt:Date.now()});
+      console.error('No se completó el correo individual:',error.code || error.name);
+    }
   }
   if (!settings.enabled || hour < 8 || hour > 20 || (settings.reason === 'leccion' && !lesson)) process.exit(0);
+  if (settings.sender && settings.sender !== SMTP_USER.trim().toLowerCase()) throw Object.assign(new Error('Remitente distinto al secreto SMTP'),{code:'sender-mismatch'});
   const eligible = await db.collection('profiles').where('streakReminder','==',true)
     .limit(100).get();
   let sent=0,failed=0;
@@ -83,9 +98,8 @@ try {
   if (failed) process.exitCode=1;
 } catch (error) {
   console.error('No se completó el envío:',error.code || error.name);
-  if (manual || pending?.state === 'pending') {
+  if (manual) {
     await status.set({test:'failed',testAt:new Date().toISOString(),error:error.code || error.name},{merge:true});
-    if (!manual) await testRef.update({state:'failed'});
   }
   process.exitCode=1;
 } finally { mail.close(); }

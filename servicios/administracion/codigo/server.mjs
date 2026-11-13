@@ -70,13 +70,20 @@ app.post('/admin/notifications/test', async (req,res) => {
       (uid !== req.actor.uid && (await db.doc(`profiles/${uid}`).get()).data()?.streakReminder !== true)) {
     return res.status(409).json({error:'El destinatario debe tener correo verificado y sus recordatorios activados.'});
   }
-  const ref = db.doc('notificaciones/prueba');
+  const ref = db.doc(`recordatoriosManuales/${uid}`);
   await db.runTransaction(async tx => {
     const previous = (await tx.get(ref)).data();
-    if (Date.now() - (previous?.requestedAt ?? 0) < 3600000) throw Object.assign(new Error('Ya solicitaste una prueba. Espera una hora antes de repetirla.'),{status:409});
+    if (previous?.state === 'pending' || (previous?.state === 'processing' && Date.now() - previous.requestedAt < 2*3600000)) throw Object.assign(new Error('Este correo ya está pendiente. No necesitas solicitarlo otra vez.'),{status:409});
+    if (previous?.state === 'sent' && Date.now() - (previous?.finishedAt ?? 0) < 300000) throw Object.assign(new Error('Acabamos de enviarle un correo. Espera cinco minutos antes de repetirlo.'),{status:409});
     tx.set(ref,{uid,requestedAt:Date.now(),state:'pending'});
   });
   res.status(202).json({queued:true});
+});
+app.get('/admin/notifications/delivery', async (req,res) => {
+  const uid = req.query.uid ?? req.actor.uid;
+  if (typeof uid !== 'string' || !uid || uid.includes('/') || uid.length > 128) return res.sendStatus(400);
+  const data = (await db.doc(`recordatoriosManuales/${uid}`).get()).data();
+  res.json({state:data?.state ?? null});
 });
 app.get('/admin/catalog/history', async (_req,res) => {
   const snapshots = await history.orderBy('revision','desc').limit(20).select('revision','archivedAt','totalSigns').get();
