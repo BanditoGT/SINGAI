@@ -1,0 +1,30 @@
+name: Recordatorios de racha
+on:
+  schedule:
+    - cron: '17 0 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: recordatorios-singai
+  cancel-in-progress: false
+jobs:
+  enviar:
+    if: github.ref == 'refs/heads/main' && vars.RECORDATORIOS_ACTIVOS == 'true'
+    environment: recordatorios
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --frozen-lockfile
+      - run: node servicios/administracion/codigo/recordar-racha.mjs
+        env:
+          FIREBASE_ADMIN_JSON: ${{ secrets.FIREBASE_ADMIN_JSON }}
+          SMTP_USER: ${{ secrets.SINGAI_SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SINGAI_SMTP_PASS }}

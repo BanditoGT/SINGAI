@@ -44,6 +44,9 @@ importers:
       firebase-admin:
         specifier: ^13.5.0
         version: 13.10.0(@firebase/app-compat@0.5.16)(@firebase/app@0.16.0)(supports-color@8.1.1)
+      nodemailer:
+        specifier: ^7.0.5
+        version: 7.0.13
 
   servicios/analitica:
     dependencies:

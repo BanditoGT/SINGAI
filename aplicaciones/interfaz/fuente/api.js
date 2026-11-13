@@ -213,7 +213,7 @@ async function securityApi(path) {
 async function profileApi(path, method, body) {
   const user = await currentUser(); const profileRef = doc(db, 'profiles', user.uid);
   if (path === '/profile' && method === 'PATCH') {
-    const allowed = ['displayName','avatar','learningGoal','dailyGoal','weeklyGoal','experienceLevel','preferredCategory','bio','autoplayVideos'];
+    const allowed = ['displayName','avatar','learningGoal','dailyGoal','weeklyGoal','experienceLevel','preferredCategory','bio','autoplayVideos','streakReminder'];
     const changes = Object.fromEntries(allowed.filter(key => body[key] !== undefined).map(key => [key, body[key]]));
     await updateDoc(profileRef, changes);
     const updated = normalizarPerfil((await getDoc(profileRef)).data());

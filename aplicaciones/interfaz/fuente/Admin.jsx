@@ -19,6 +19,7 @@ export default function Admin({ catalog, onPublish, owner }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [versions, setVersions] = useState([]);
   const [preview, setPreview] = useState(null);
   const dialog = useRef(null);
   const dirty = JSON.stringify(draft.units) !== JSON.stringify(catalog.units);
@@ -38,6 +39,10 @@ export default function Admin({ catalog, onPublish, owner }) {
     setCursor(result.cursor);
   });
   useEffect(() => { if (tab === 'usuarios') loadUsers(); }, [tab]);
+  const showHistory = () => {
+    setTab('historial');
+    run(async () => setVersions((await adminApi('/catalog/history')).versions));
+  };
   const changeUser = (user, data, label) => setConfirm({
     text: `${label}: ${user.email}.`,
     action: () => run(async () => {
@@ -52,6 +57,7 @@ export default function Admin({ catalog, onPublish, owner }) {
     <div className="admin-tabs" aria-label="Administración">
       <button className="button secondary" aria-pressed={tab === 'contenido'} disabled={busy} onClick={() => setTab('contenido')}>Contenido</button>
       <button className="button secondary" aria-pressed={tab === 'usuarios'} disabled={busy} onClick={() => setTab('usuarios')}>Usuarios</button>
+      <button className="button secondary" aria-pressed={tab === 'historial'} disabled={busy} onClick={showHistory}>Historial del catálogo</button>
     </div>
     {notice && <p role={notice.error ? 'alert' : 'status'} className={notice.error ? 'notice' : 'notice success'}>{notice.text}</p>}
     {confirm && <div className="admin-confirm" role="alert">
@@ -69,7 +75,7 @@ export default function Admin({ catalog, onPublish, owner }) {
         <strong>{dirty ? 'Cambios sin publicar' : 'Catálogo publicado'}</strong>
         <span>{draft.units.length} unidades · {draft.units.reduce((sum, unit) => sum + unit.lessons.length, 0)} lecciones</span>
       </div>
-      <p className="muted">Al publicar, los cambios aparecen para todos los estudiantes.</p>
+      <p className="muted">Al publicar, los cambios aparecen para todos los estudiantes. Quitar una seña la oculta del catálogo; el archivo de video se conserva.</p>
       <fieldset disabled={busy || !!confirm}>
       {draft.units.map((unit, u) => <details className="admin-card" key={unit.id}><summary>{unit.title || 'Unidad nueva'}</summary>
         <div className="admin-fields">
@@ -108,7 +114,24 @@ export default function Admin({ catalog, onPublish, owner }) {
         <button className="button primary" disabled={!dirty}>Publicar catálogo</button>
       </div>
       </fieldset>
-    </form> : <section className="admin-card">
+    </form> : tab === 'historial' ? <section className="admin-card">
+      <h2>Versiones anteriores</h2>
+      <p>Se muestran las últimas 20 versiones guardadas. Puedes cargar una como borrador y revisarla antes de publicar. Esto reemplaza el borrador completo, pero no cambia los videos ni el progreso guardado.</p>
+      {busy ? <p role="status">Cargando…</p> : !versions.length ? <p>No hay versiones guardadas todavía.</p> : versions.map(version =>
+        <article className="admin-user" key={version.revision}>
+          <strong>Versión {version.revision} · {version.totalSigns} señas</strong>
+          <p>{new Date(version.archivedAt).toLocaleString('es-GT', {timeZone:'America/Guatemala'})}</p>
+          <button disabled={!!confirm} onClick={() => setConfirm({
+            text: 'Cargar esta versión en lugar del borrador actual',
+            action: () => run(async () => {
+              const saved = await adminApi('/catalog/history/' + version.revision);
+              setDraft({ ...catalog, units:saved.units });
+              setTab('contenido');
+            }, 'Versión cargada como borrador. Revisa y publica para recuperarla.')
+          })}>Cargar como borrador</button>
+        </article>
+      )}
+    </section> : <section className="admin-card">
       {field('Buscar entre las cuentas cargadas', query, setQuery, {type:'search'})}
       {users.filter(u => (u.email+' '+u.name).toLowerCase().includes(query.trim().toLowerCase())).map(user => <article className="admin-user" key={user.uid}>
         <div><strong>{user.name || user.email}</strong><div>{user.email}</div><small>{user.admin ? 'Administrador' : 'Estudiante'} · {user.disabled ? 'Desactivada' : 'Activa'} · {user.verified ? 'Correo verificado' : 'Correo sin verificar'}</small></div>

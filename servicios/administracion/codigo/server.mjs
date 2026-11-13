@@ -4,6 +4,7 @@ import { cert, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { validarCatalogo } from './catalogo.mjs';
 
 const projectId = 'singai-seminario-2026-gt';
@@ -13,6 +14,8 @@ initializeApp({ credential: cert(credential), projectId });
 const auth = getAuth();
 const db = getFirestore();
 const catalog = db.doc('catalogo/publicado');
+const history = db.collection('catalogoHistorial');
+const original = JSON.parse(readFileSync(new URL('../../../datos/catalog.json', import.meta.url), 'utf8'));
 const cloud = process.env.CLOUDINARY_CLOUD_NAME;
 cloudinary.config({ cloud_name: cloud, api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET, secure: true });
 const app = express();
@@ -42,12 +45,24 @@ app.use('/admin', async (req,res,next) => {
 });
 app.use(express.json({ limit: '750kb' }));
 const audit = (req, action, target) => console.info(JSON.stringify({ action, target, actor: req.actor.uid, date: new Date().toISOString() }));
+app.get('/admin/catalog/history', async (_req,res) => {
+  const snapshots = await history.orderBy('revision','desc').limit(20).select('revision','archivedAt','totalSigns').get();
+  res.json({ versions: snapshots.docs.map(doc => doc.data()) });
+});
+app.get('/admin/catalog/history/:revision', async (req,res) => {
+  if (!/^\d+$/.test(req.params.revision)) return res.sendStatus(400);
+  const snapshot = await history.doc(req.params.revision).get();
+  if (!snapshot.exists) return res.sendStatus(404);
+  res.json(snapshot.data());
+});
 app.put('/admin/catalog', async (req,res) => {
   const data = validarCatalogo(req.body, cloud);
   const revision = await db.runTransaction(async tx => {
     const snapshot = await tx.get(catalog);
     const current = snapshot.data()?.revision ?? 0;
     if (req.body.revision !== current) throw Object.assign(new Error('El catálogo cambió. Recarga antes de volver a guardar.'), { status: 409 });
+    const previous = snapshot.data() ?? original;
+    tx.set(history.doc(String(current)), { ...previous, revision: current, archivedAt: new Date().toISOString() });
     tx.set(catalog, { ...data, revision: current + 1, updatedAt: new Date().toISOString() });
     return current + 1;
   });
