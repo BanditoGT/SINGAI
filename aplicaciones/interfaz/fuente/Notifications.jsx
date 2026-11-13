@@ -8,8 +8,8 @@ export default function Notifications({catalog}) {
   const load=()=>run(async()=>{const data=await adminApi('/notifications');setForm(data.settings);setStatus(data.status)});
   useEffect(()=>{load()},[]);
   const sample=text=>text.replace(/\{\{(nombre|racha|leccion|enlace)\}\}/g,(_,key)=>({nombre:'Diego',racha:form.reason==='racha'?'Llevas 3 días de racha. ¡Sigue así!':'',leccion:form.reason==='leccion'?lessons.find(l=>l.id===form.lessonId)?.title ?? '':'',enlace:'https://singai.web.app/'})[key]);
-  return <section className="admin-card">
-    <h2>Notificaciones por correo</h2>
+  return <section className="admin-card reminders-panel">
+    <h2>Recordatorios por correo</h2>
     <p>Los avisos automáticos solo llegan a estudiantes con correo verificado y recordatorios activados.</p>
     {notice && <p role="status">{notice}</p>}
     {!form ? <button disabled={busy} onClick={load}>{busy?'Cargando…':'Volver a cargar'}</button> : <form onSubmit={e=>{e.preventDefault();run(async()=>{setForm(await adminApi('/notifications',{method:'PUT',data:form}));setNotice('Configuración guardada.');});}}>
@@ -30,8 +30,7 @@ export default function Notifications({catalog}) {
         <button className="button primary">Guardar configuración</button>
       </fieldset>
     </form>}
-    <div className="admin-tabs"><a className="button secondary" href="https://github.com/BanditoGT/SINGAI/actions/workflows/recordar-racha.yml" target="_blank" rel="noreferrer">Enviar prueba ahora en GitHub</a></div>
-    <p className="muted">Guarda primero. En GitHub pulsa «Run workflow» en main. La prueba solo se envía al administrador, incluso con los avisos automáticos apagados. La clave del remitente se administra en GitHub Secrets.</p>
+    <div className="admin-tabs"><button className="button secondary" disabled={busy} onClick={()=>run(async()=>{await adminApi('/notifications/test',{method:'POST'});setNotice('Prueba en cola. Se enviará en la próxima revisión de correo.');})}>Solicitar correo de prueba</button><button type="button" disabled={busy} onClick={load}>Actualizar estado</button></div>
     {status?.testAt && <p>Última prueba: {status.test==='sent'?'aceptada por Gmail':'fallida'} · {new Date(status.testAt).toLocaleString('es-GT')}</p>}
   </section>;
 }

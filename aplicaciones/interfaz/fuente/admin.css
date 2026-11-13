@@ -24,3 +24,9 @@
 .admin-video-stage{position:relative;display:grid;place-items:center;background:#161623;border-radius:12px;overflow:hidden}
 .admin-video-stage video{display:block;width:100%;max-height: min(58dvh,480px);aspect-ratio:16/9;object-fit:contain}
 .admin-page .video-toggle{border:0;border-radius:50%;padding:0;margin:0;background:var(--purple);color:#fff}
+.reminders-panel{padding:clamp(16px,3vw,28px)}
+.reminders-panel select,.reminders-panel textarea,.reminders-panel input:not([type=checkbox]){width:100%;min-height:44px;border:1px solid #dce0ee;border-radius:12px;padding:10px 12px;background:#fafaff;color:var(--ink);font:inherit;font-weight:500}
+.reminders-panel textarea{resize:vertical}
+.reminders-panel .admin-fields{margin:14px 0}
+.reminders-panel input[type=checkbox]{accent-color:var(--purple)}
+.reminders-panel .admin-confirm{background:#f7f5ff;border-color:#e4ddff}

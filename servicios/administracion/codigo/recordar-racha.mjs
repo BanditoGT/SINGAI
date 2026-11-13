@@ -33,19 +33,20 @@ const lesson = settings.reason === 'leccion' ? ((await db.doc('catalogo/publicad
 try {
   if (settings.sender && settings.sender !== SMTP_USER.trim().toLowerCase()) throw Object.assign(new Error('Remitente distinto al secreto SMTP'),{code:'sender-mismatch'});
   if (manual || pending?.state === 'pending') {
-    const owner = await auth.getUserByEmail('juuandiego222@gmail.com');
-    if (!owner.emailVerified || owner.disabled || owner.customClaims?.owner !== true) throw new Error('Cuenta de prueba no disponible');
+    const owner = manual ? await auth.getUserByEmail('juuandiego222@gmail.com') : await auth.getUser(pending.uid);
+    if (!owner.emailVerified || owner.disabled || !owner.email || (manual && owner.customClaims?.owner !== true)) throw new Error('Cuenta no disponible');
     const profile = (await db.doc(`profiles/${owner.uid}`).get()).data() ?? {};
+    if (!manual && owner.customClaims?.owner !== true && profile.streakReminder !== true) throw new Error('Recordatorios desactivados');
     const streak = [today,yesterday].includes(profile.lastActivity) ? Math.max(0,Number(profile.streak)||0) : 0;
     const message = makeMessage(settings,streak,lesson?.title,profile.displayName || owner.displayName || 'estudiante');
-    if (pending?.state === 'pending') await testRef.update({state:'processing'});
-    await mail.sendMail({from:{name:'SingAI',address:SMTP_USER},to:owner.email,...message,subject:'[Prueba] ' + message.subject});
-    if (pending?.state === 'pending') await testRef.update({state:'sent'});
+    if (!manual) await testRef.update({state:'processing'});
+    await mail.sendMail({from:{name:'SingAI',address:SMTP_USER},to:owner.email,...message,subject:manual ? '[Prueba] ' + message.subject : message.subject});
+    if (!manual) await testRef.update({state:'sent'});
     await status.set({test:'sent',testAt:new Date().toISOString()},{merge:true});
     console.log('Gmail aceptó la prueba para el administrador.');
     if (manual) process.exit(0);
   }
-  if (!canSend(settings,hour,0,false) || (settings.reason === 'leccion' && !lesson)) process.exit(0);
+  if (!settings.enabled || hour < 8 || hour > 20 || (settings.reason === 'leccion' && !lesson)) process.exit(0);
   const eligible = await db.collection('profiles').where('streakReminder','==',true)
     .limit(100).get();
   let sent=0,failed=0;
@@ -63,7 +64,9 @@ try {
           lesson && tx.get(profile.collection('progress').doc(lesson.id)),tx.get(db.doc('notificaciones/configuracion'))]);
         if (!Object.entries(settings).every(([key,value]) => cfg.data()?.[key] === value)) return null;
         const d = p.data(), previous=m.data(), count=previous?.day === today ? previous.count ?? 1 : 0;
-        if (d?.streakReminder !== true || !canSend(settings,hour,count,l?.exists || progress?.exists)
+        const personal = Number.isInteger(d?.reminderHour) && d.reminderHour >= 8 && d.reminderHour <= 20
+          ? {...settings,frequency:'diaria',hour:d.reminderHour} : settings;
+        if (d?.streakReminder !== true || !canSend(personal,hour,count,l?.exists || progress?.exists)
           || (previous?.day === today && previous.hour === hour)
           || (!lesson && (d.lastActivity !== yesterday || !(d.streak > 0)))) return null;
         tx.set(marker,{day:today,hour,count:count+1});
@@ -82,7 +85,7 @@ try {
   console.error('No se completó el envío:',error.code || error.name);
   if (manual || pending?.state === 'pending') {
     await status.set({test:'failed',testAt:new Date().toISOString(),error:error.code || error.name},{merge:true});
-    if (pending?.state === 'pending') await testRef.update({state:'failed'});
+    if (!manual) await testRef.update({state:'failed'});
   }
   process.exitCode=1;
 } finally { mail.close(); }

@@ -63,11 +63,18 @@ app.put('/admin/notifications', async (req,res) => {
   res.json(settings);
 });
 app.post('/admin/notifications/test', async (req,res) => {
+  const uid = req.body?.uid ?? req.actor.uid;
+  if (typeof uid !== 'string' || !uid || uid.includes('/') || uid.length > 128) return res.sendStatus(400);
+  const target = await auth.getUser(uid);
+  if (target.disabled || !target.emailVerified || !target.email ||
+      (uid !== req.actor.uid && (await db.doc(`profiles/${uid}`).get()).data()?.streakReminder !== true)) {
+    return res.status(409).json({error:'El destinatario debe tener correo verificado y sus recordatorios activados.'});
+  }
   const ref = db.doc('notificaciones/prueba');
   await db.runTransaction(async tx => {
     const previous = (await tx.get(ref)).data();
     if (Date.now() - (previous?.requestedAt ?? 0) < 3600000) throw Object.assign(new Error('Ya solicitaste una prueba. Espera una hora antes de repetirla.'),{status:409});
-    tx.set(ref,{uid:req.actor.uid,requestedAt:Date.now(),state:'pending'});
+    tx.set(ref,{uid,requestedAt:Date.now(),state:'pending'});
   });
   res.status(202).json({queued:true});
 });
@@ -106,22 +113,24 @@ app.post('/admin/video', express.raw({ type: 'video/mp4', limit: '20mb' }), asyn
   audit(req, 'video.upload', publicId);
   res.status(201).json({ video: result.secure_url });
 });
-const userView = (u, profile) => ({ uid:u.uid, email:u.email ?? '', name:u.displayName ?? '', disabled:u.disabled, admin:u.customClaims?.admin === true, verified:u.emailVerified, hasProfile:profile?.exists === true, streakReminder:profile?.data()?.streakReminder === true });
+const userView = (u, profile) => ({ uid:u.uid, email:u.email ?? '', name:u.displayName ?? '', disabled:u.disabled, admin:u.customClaims?.admin === true, verified:u.emailVerified, hasProfile:profile?.exists === true, streakReminder:profile?.data()?.streakReminder === true, reminderHour:profile?.data()?.reminderHour ?? null });
 app.get('/admin/users', async (req,res) => {
   const result = await auth.listUsers(100, typeof req.query.cursor === 'string' ? req.query.cursor : undefined);
-  const profiles = result.users.length ? await db.getAll(...result.users.map(user => db.doc(`profiles/${user.uid}`)), {fieldMask:['streakReminder']}) : [];
+  const profiles = result.users.length ? await db.getAll(...result.users.map(user => db.doc(`profiles/${user.uid}`)), {fieldMask:['streakReminder','reminderHour']}) : [];
   const byId = new Map(profiles.map(profile => [profile.id, profile]));
   res.json({ users: result.users.map(user => userView(user, byId.get(user.uid))), cursor: result.pageToken ?? null });
 });
 app.patch('/admin/users/:uid/reminders', async (req,res) => {
   const enabled = req.body?.enabled;
   if (typeof enabled !== 'boolean') return res.sendStatus(400);
+  const hour = req.body?.hour;
+  if (hour !== undefined && hour !== null && (!Number.isInteger(hour) || hour < 8 || hour > 20)) return res.sendStatus(400);
   const user = await auth.getUser(req.params.uid);
   if (enabled && (user.disabled || !user.emailVerified || !user.email)) return res.status(409).json({error:'La cuenta debe estar activa y tener correo verificado.'});
   const profile = db.doc(`profiles/${user.uid}`);
   await db.runTransaction(async tx => {
     if (!(await tx.get(profile)).exists) throw Object.assign(new Error('La cuenta todavía no tiene perfil.'), {status:409});
-    tx.update(profile, {streakReminder:enabled});
+    tx.update(profile, {streakReminder:enabled,...(hour !== undefined ? {reminderHour:hour} : {})});
   });
   audit(req, enabled ? 'reminders.enable' : 'reminders.disable', user.uid);
   res.json(userView(user, await profile.get()));

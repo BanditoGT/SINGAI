@@ -20,6 +20,7 @@ export default function Admin({ catalog, onPublish, owner }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [reminderUser, setReminderUser] = useState(null);
   const [versions, setVersions] = useState([]);
   const [preview, setPreview] = useState(null);
   const dialog = useRef(null);
@@ -59,7 +60,7 @@ export default function Admin({ catalog, onPublish, owner }) {
       <button className="button secondary" aria-pressed={tab === 'contenido'} disabled={busy} onClick={() => setTab('contenido')}>Contenido</button>
       <button className="button secondary" aria-pressed={tab === 'usuarios'} disabled={busy} onClick={() => setTab('usuarios')}>Usuarios</button>
       <button className="button secondary" aria-pressed={tab === 'historial'} disabled={busy} onClick={showHistory}>Historial del catálogo</button>
-      {owner && <button className="button secondary" aria-pressed={tab === 'notificaciones'} disabled={busy} onClick={() => setTab('notificaciones')}>Notificaciones</button>}
+      {owner && <button className="button secondary" aria-pressed={tab === 'notificaciones'} disabled={busy} onClick={() => setTab('notificaciones')}>Recordatorios</button>}
     </div>
     {notice && <p role={notice.error ? 'alert' : 'status'} className={notice.error ? 'notice' : 'notice success'}>{notice.text}</p>}
     {confirm && <div className="admin-confirm" role="alert">
@@ -138,11 +139,30 @@ export default function Admin({ catalog, onPublish, owner }) {
         </article>
       )}
     </section> : tab === 'notificaciones' && owner ? <Notifications catalog={catalog}/> : <section className="admin-card">
-      <p className="muted">La frecuencia y el mensaje se ajustan en Notificaciones. Cada estudiante puede desactivar sus avisos en Mi perfil.</p>
+      <p className="muted">Cada cuenta usa el horario general salvo que le asignes uno propio.</p>
+      {reminderUser && <div className="admin-card reminders-panel">
+        <h3>Recordatorios de {reminderUser.name || reminderUser.email}</h3>
+        <label>Horario (Guatemala)<select value={reminderUser.reminderHour ?? ''} onChange={e=>setReminderUser(u=>({...u,reminderHour:e.target.value === '' ? null : Number(e.target.value)}))}>
+          <option value="">Usar horario general</option>
+          {Array.from({length:13},(_,i)=>i+8).map(h=><option key={h} value={h}>Todos los días a las {h}:17</option>)}
+        </select></label>
+        <div className="admin-actions">
+          <button disabled={busy} onClick={()=>run(async()=>{
+            const saved=await adminApi('/users/'+encodeURIComponent(reminderUser.uid)+'/reminders',{method:'PATCH',data:{enabled:reminderUser.streakReminder,hour:reminderUser.reminderHour ?? null}});
+            setUsers(list=>list.map(u=>u.uid===saved.uid?saved:u));setReminderUser(null);
+          },'Horario guardado.')}>Guardar horario</button>
+          {owner && <button disabled={busy || !reminderUser.streakReminder || reminderUser.disabled || !reminderUser.verified} onClick={()=>setConfirm({
+            text:'Poner en cola un correo para '+reminderUser.email,
+            action:()=>run(()=>adminApi('/notifications/test',{method:'POST',data:{uid:reminderUser.uid}}),'Correo en cola para la próxima revisión.')
+          })}>Solicitar envío individual</button>}
+          <button onClick={()=>setReminderUser(null)}>Cerrar</button>
+        </div>
+      </div>}
       {field('Buscar entre las cuentas cargadas', query, setQuery, {type:'search'})}
       {users.filter(u => (u.email+' '+u.name).toLowerCase().includes(query.trim().toLowerCase())).map(user => <article className="admin-user" key={user.uid}>
         <div><strong>{user.name || user.email}</strong><div>{user.email}</div><small>{user.admin ? 'Administrador' : 'Estudiante'} · {user.disabled ? 'Desactivada' : 'Activa'} · {user.verified ? 'Correo verificado' : 'Correo sin verificar'}</small></div>
         <div className="admin-actions">
+          {user.hasProfile && <button disabled={busy || !!confirm} onClick={()=>setReminderUser(user)}>Configurar recordatorios · {user.reminderHour != null ? user.reminderHour + ':17' : 'Horario general'}</button>}
           {user.hasProfile && <button aria-pressed={user.streakReminder} disabled={busy || !!confirm || (!user.streakReminder && (user.disabled || !user.verified))} onClick={() => setConfirm({
             text:`${user.streakReminder ? 'Desactivar' : 'Activar'} recordatorios de racha para ${user.email}`,
             action: () => run(async () => {
