@@ -11,7 +11,7 @@ const yesterday = dateKey(new Date(now.getTime() - 86400000));
 const { FIREBASE_ADMIN_JSON, SMTP_USER, SMTP_PASS } = process.env;
 if (!FIREBASE_ADMIN_JSON || !SMTP_USER || !SMTP_PASS) {
   console.log('Recordatorios desactivados: falta configurar el remitente o Firebase.');
-  process.exit(0);
+  process.exit(process.env.SINGAI_TEST_MAIL === 'true' ? 1 : 0);
 }
 const credential = JSON.parse(FIREBASE_ADMIN_JSON);
 if (credential.project_id !== 'singai-seminario-2026-gt') throw new Error('Proyecto de Firebase incorrecto.');
@@ -19,6 +19,21 @@ initializeApp({ credential:cert(credential) });
 const db = getFirestore();
 const auth = getAuth();
 const mail = nodemailer.createTransport({ service:'gmail',auth:{user:SMTP_USER,pass:SMTP_PASS},connectionTimeout:10000,socketTimeout:15000 });
+if (process.env.SINGAI_TEST_MAIL === 'true') {
+  try {
+    const owner = await auth.getUserByEmail('juuandiego222@gmail.com');
+    if (!owner.emailVerified || owner.disabled || owner.customClaims?.owner !== true) throw new Error('Cuenta de prueba no disponible');
+    await mail.sendMail({
+      from:{name:'SingAI',address:SMTP_USER}, to:owner.email,
+      subject:'Prueba de correo de SingAI',
+      text:'Esta es una prueba del remitente de recordatorios. No se enviaron avisos a estudiantes. https://singai.web.app/'
+    });
+    console.log('Gmail aceptó el correo de prueba para la cuenta administradora.');
+  } catch (error) {
+    console.error('Falló la prueba:',error.code || error.name);
+    process.exitCode = 1;
+  } finally { mail.close(); }
+} else {
 const eligible = await db.collection('profiles').where('streakReminder','==',true).where('lastActivity','==',yesterday).limit(100).get();
 let sent = 0, failed = 0;
 for (const candidate of eligible.docs) {
@@ -47,3 +62,4 @@ for (const candidate of eligible.docs) {
 }
 console.log(`Recordatorios enviados: ${sent}; incidencias: ${failed}.`);
 if (failed) process.exitCode = 1;
+}

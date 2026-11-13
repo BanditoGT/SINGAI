@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   enviar:
-    if: github.ref == 'refs/heads/main' && vars.RECORDATORIOS_ACTIVOS == 'true'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.RECORDATORIOS_ACTIVOS == 'true')
     environment: recordatorios
     runs-on: ubuntu-latest
     timeout-minutes: 8
@@ -28,3 +28,4 @@ jobs:
           FIREBASE_ADMIN_JSON: ${{ secrets.FIREBASE_ADMIN_JSON }}
           SMTP_USER: ${{ secrets.SINGAI_SMTP_USER }}
           SMTP_PASS: ${{ secrets.SINGAI_SMTP_PASS }}
+          SINGAI_TEST_MAIL: ${{ github.event_name == 'workflow_dispatch' }}
