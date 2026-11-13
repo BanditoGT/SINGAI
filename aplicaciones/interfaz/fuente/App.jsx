@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Admin from './Admin.jsx';
+import SignVideo from './SignVideo.jsx';
 import { api, MEDIA_URL, session, securityMode } from './api.js';
 import { crearSecuenciaTraduccion } from './traductor.js';
 import { actividadUltimosDias, calcularLogros } from './logros.js';
 import { estadoRacha, estadoVidas, listarRangos, obtenerRango, seCompletoHoy, VIDAS_MAXIMAS } from './progreso.js';
-import { ArrowLeft, ArrowRight, Award, Bell, BookOpen, CalendarDays, Check, ChevronRight, CircleUserRound, Crown, Eye, EyeOff, Flame, Heart, Home, Languages, Library, LockKeyhole, LogOut, Mail, Medal, Menu, Mic, Pause, Play, Search, Settings, ShieldCheck, Sparkles, Star, Target, Trophy, UserPlus, Users, Volume2, X, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Award, Bell, BookOpen, CalendarDays, Check, ChevronRight, CircleUserRound, Crown, Eye, EyeOff, Flame, Heart, Home, Languages, Library, LockKeyhole, LogOut, Mail, Medal, Menu, Mic, Play, Search, Settings, ShieldCheck, Sparkles, Star, Target, Trophy, UserPlus, Users, Volume2, X, Zap } from 'lucide-react';
 
 const normalize = text => String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9ñ]+/g, ' ').trim();
 const videoSrc = path => path.startsWith('https://res.cloudinary.com/') ? path : `${MEDIA_URL}${path}?formato=h264`;
@@ -23,33 +24,6 @@ function PasswordField({ value, onChange, autoComplete, placeholder = 'Mínimo 8
   return <div className="input-wrap"><LockKeyhole/><input type={visible ? 'text' : 'password'} value={value} onChange={onChange} placeholder={placeholder} autoComplete={autoComplete} required minLength="8"/><button type="button" className="password-toggle" onClick={() => setVisible(show => !show)} aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'} title={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{visible ? <EyeOff/> : <Eye/>}</button></div>;
 }
 
-function SignVideo({ src, autoplay = true, loop = false, onEnded }) {
-  const media = useRef(null); const [paused, setPaused] = useState(!autoplay); const [error, setError] = useState('');
-  useEffect(() => {
-    const video = media.current; if (!video) return;
-    setError(''); setPaused(!autoplay);
-    video.muted = true;
-    if (!autoplay) { video.pause(); return; }
-    const start = () => video.play().catch(() => setPaused(true));
-    if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) start();
-    else video.addEventListener('canplay', start, { once: true });
-    return () => video.removeEventListener('canplay', start);
-  }, [src, autoplay]);
-  const toggle = () => {
-    const video = media.current; if (!video) return;
-    setError(''); video.muted = true;
-    if (video.paused) {
-      if (video.ended) video.currentTime = 0;
-      video.play().catch(() => setPaused(true));
-    }
-    else video.pause();
-  };
-  return <><video ref={media} src={src} autoPlay={autoplay} loop={loop} muted playsInline preload="auto"
-    onPlay={() => { setPaused(false); setError(''); }} onPause={() => setPaused(true)}
-    onError={() => setError('No se pudo cargar este video.')} onEnded={onEnded}/>
-    <button type="button" className="video-toggle" onClick={toggle} aria-label={paused ? 'Reproducir video' : 'Pausar video'} title={paused ? 'Reproducir' : 'Pausar'}>{paused ? <Play/> : <Pause/>}</button>
-    {error && <div className="video-error"><X/>{error}</div>}</>;
-}
 
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState('login'); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [error, setError] = useState('');

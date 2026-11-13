@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Play, X } from 'lucide-react';
+import SignVideo from './SignVideo.jsx';
 import { adminApi, adminReset } from './api.js';
 import './admin.css';
 
@@ -17,6 +19,10 @@ export default function Admin({ catalog, onPublish, owner }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const dialog = useRef(null);
+  const dirty = JSON.stringify(draft.units) !== JSON.stringify(catalog.units);
+  useEffect(() => { if (preview && !dialog.current.open) dialog.current.showModal(); }, [preview]);
   const edit = fn => setDraft(current => {
     const copy = structuredClone(current); fn(copy.units); return copy;
   });
@@ -59,7 +65,11 @@ export default function Admin({ catalog, onPublish, owner }) {
         setDraft(saved); onPublish(saved);
       }, 'Catálogo publicado.') });
     }}>
-      <p>Los cambios se aplican al pulsar «Publicar». Quitar una seña la retira del catálogo.</p>
+      <div className="admin-catalog-status">
+        <strong>{dirty ? 'Cambios sin publicar' : 'Catálogo publicado'}</strong>
+        <span>{draft.units.length} unidades · {draft.units.reduce((sum, unit) => sum + unit.lessons.length, 0)} lecciones</span>
+      </div>
+      <p className="muted">Al publicar, los cambios aparecen para todos los estudiantes.</p>
       <fieldset disabled={busy || !!confirm}>
       {draft.units.map((unit, u) => <details className="admin-card" key={unit.id}><summary>{unit.title || 'Unidad nueva'}</summary>
         <div className="admin-fields">
@@ -73,7 +83,7 @@ export default function Admin({ catalog, onPublish, owner }) {
           </div>
           {lesson.signs.map((sign,s) => <div key={sign.id} className="admin-sign">
             {field('Palabra o frase', sign.term, v => edit(a => {a[u].lessons[l].signs[s].term=v;}), {required:true,maxLength:100})}
-            <label>{sign.video ? 'Reemplazar video' : 'Subir video'}<input type="file" accept="video/mp4,.mp4" onChange={e => {
+            <label className="admin-upload">{sign.video ? 'Reemplazar video' : 'Subir video'}<input type="file" accept="video/mp4,.mp4" onChange={e => {
               const file = e.target.files[0]; e.target.value = '';
               if (!file) return;
               run(async () => {
@@ -82,8 +92,10 @@ export default function Admin({ catalog, onPublish, owner }) {
                 edit(a => {a[u].lessons[l].signs[s].video=result.video;});
               }, 'Video subido. Publica el catálogo para aplicar el cambio.');
             }}/></label>
-            {sign.video && <a href={sign.video} target="_blank" rel="noreferrer">Ver video</a>}
-            <button type="button" onClick={() => edit(a => {a[u].lessons[l].signs.splice(s,1);})}>Quitar seña</button>
+            <div className="admin-sign-actions">
+              {sign.video && <button type="button" className="button secondary admin-preview-button" onClick={() => setPreview({ ...sign })}><Play aria-hidden="true"/> Ver video</button>}
+              <button type="button" className="admin-remove" onClick={() => edit(a => {a[u].lessons[l].signs.splice(s,1);})}>Quitar seña</button>
+            </div>
           </div>)}
           <button type="button" onClick={() => edit(a => {a[u].lessons[l].signs.push(firstSign());})}>Agregar seña</button>
           <button type="button" onClick={() => edit(a => {a[u].lessons.splice(l,1);})}>Quitar lección</button>
@@ -93,7 +105,7 @@ export default function Admin({ catalog, onPublish, owner }) {
       </details>)}
       <div className="admin-tabs">
         <button type="button" className="button secondary" onClick={() => edit(a => {a.push({ id:uuid(), title:'', description:'', color:'#6c5ce7', lessons:[firstLesson()] });})}>Agregar unidad</button>
-        <button className="button primary">Publicar catálogo</button>
+        <button className="button primary" disabled={!dirty}>Publicar catálogo</button>
       </div>
       </fieldset>
     </form> : <section className="admin-card">
@@ -110,5 +122,13 @@ export default function Admin({ catalog, onPublish, owner }) {
       {cursor && <button disabled={busy || !!confirm} onClick={() => loadUsers(cursor)}>Cargar más cuentas</button>}
       {busy && <p role="status">Procesando… El primer acceso puede tardar.</p>}
     </section>}
+    <dialog ref={dialog} className="admin-video-dialog" aria-labelledby="admin-video-title" onClose={() => setPreview(null)}>
+      {preview && <>
+        <header><div><span className="eyebrow">VISTA PREVIA</span><h2 id="admin-video-title">{preview.term || 'Video de la seña'}</h2></div>
+          <button type="button" autoFocus className="admin-close" onClick={() => dialog.current.close()} aria-label="Cerrar vista previa"><X aria-hidden="true"/></button>
+        </header>
+        <div className="admin-video-stage"><SignVideo key={preview.video} src={preview.video.startsWith('/multimedia/') ? preview.video + '?formato=h264' : preview.video} autoplay={false}/></div>
+      </>}
+    </dialog>
   </div>;
 }
