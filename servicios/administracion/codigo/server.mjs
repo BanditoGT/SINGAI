@@ -6,6 +6,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { validarCatalogo } from './catalogo.mjs';
+import { defaults, validateSettings } from './notificaciones.mjs';
 
 const projectId = 'singai-seminario-2026-gt';
 const credential = JSON.parse(process.env.FIREBASE_ADMIN_JSON || '{}');
@@ -45,6 +46,31 @@ app.use('/admin', async (req,res,next) => {
 });
 app.use(express.json({ limit: '750kb' }));
 const audit = (req, action, target) => console.info(JSON.stringify({ action, target, actor: req.actor.uid, date: new Date().toISOString() }));
+const notificationSettings = db.doc('notificaciones/configuracion');
+app.use('/admin/notifications', (req,res,next) => req.actor.customClaims?.owner === true ? next() : res.sendStatus(403));
+app.get('/admin/notifications', async (_req,res) => {
+  const [settings,status] = await Promise.all([notificationSettings.get(), db.doc('notificaciones/estado').get()]);
+  res.json({settings:settings.data() ?? defaults,status:status.data() ?? null});
+});
+app.put('/admin/notifications', async (req,res) => {
+  const settings = validateSettings(req.body);
+  if (settings.reason === 'leccion') {
+    const current = (await catalog.get()).data() ?? original;
+    if (!current.units.some(unit => unit.lessons.some(lesson => lesson.id === settings.lessonId))) return res.status(400).json({error:'Selecciona una lección publicada.'});
+  }
+  await notificationSettings.set(settings);
+  audit(req, 'notifications.configure', 'configuracion');
+  res.json(settings);
+});
+app.post('/admin/notifications/test', async (req,res) => {
+  const ref = db.doc('notificaciones/prueba');
+  await db.runTransaction(async tx => {
+    const previous = (await tx.get(ref)).data();
+    if (Date.now() - (previous?.requestedAt ?? 0) < 3600000) throw Object.assign(new Error('Ya solicitaste una prueba. Espera una hora antes de repetirla.'),{status:409});
+    tx.set(ref,{uid:req.actor.uid,requestedAt:Date.now(),state:'pending'});
+  });
+  res.status(202).json({queued:true});
+});
 app.get('/admin/catalog/history', async (_req,res) => {
   const snapshots = await history.orderBy('revision','desc').limit(20).select('revision','archivedAt','totalSigns').get();
   res.json({ versions: snapshots.docs.map(doc => doc.data()) });

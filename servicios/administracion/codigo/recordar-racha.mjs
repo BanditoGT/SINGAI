@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import { defaults, makeMessage, canSend } from './notificaciones.mjs';
+import { readFileSync } from 'node:fs';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -19,47 +21,68 @@ initializeApp({ credential:cert(credential) });
 const db = getFirestore();
 const auth = getAuth();
 const mail = nodemailer.createTransport({ service:'gmail',auth:{user:SMTP_USER,pass:SMTP_PASS},connectionTimeout:10000,socketTimeout:15000 });
-if (process.env.SINGAI_TEST_MAIL === 'true') {
-  try {
+const hour = Number(new Intl.DateTimeFormat('en-GB',{timeZone:zone,hour:'2-digit',hourCycle:'h23'}).format(now));
+const settings = (await db.doc('notificaciones/configuracion').get()).data() ?? defaults;
+const status = db.doc('notificaciones/estado');
+const testRef = db.doc('notificaciones/prueba');
+const pending = (await testRef.get()).data();
+const manual = process.env.SINGAI_TEST_MAIL === 'true';
+const lesson = settings.reason === 'leccion' ? ((await db.doc('catalogo/publicado').get()).data() ??
+  JSON.parse(readFileSync(new URL('../../../datos/catalog.json', import.meta.url),'utf8'))).units
+  .flatMap(unit => unit.lessons).find(item => item.id === settings.lessonId) : null;
+try {
+  if (settings.sender && settings.sender !== SMTP_USER.trim().toLowerCase()) throw Object.assign(new Error('Remitente distinto al secreto SMTP'),{code:'sender-mismatch'});
+  if (manual || pending?.state === 'pending') {
     const owner = await auth.getUserByEmail('juuandiego222@gmail.com');
     if (!owner.emailVerified || owner.disabled || owner.customClaims?.owner !== true) throw new Error('Cuenta de prueba no disponible');
-    await mail.sendMail({
-      from:{name:'SingAI',address:SMTP_USER}, to:owner.email,
-      subject:'Prueba de correo de SingAI',
-      text:'Esta es una prueba del remitente de recordatorios. No se enviaron avisos a estudiantes. https://singai.web.app/'
-    });
-    console.log('Gmail aceptó el correo de prueba para la cuenta administradora.');
-  } catch (error) {
-    console.error('Falló la prueba:',error.code || error.name);
-    process.exitCode = 1;
-  } finally { mail.close(); }
-} else {
-const eligible = await db.collection('profiles').where('streakReminder','==',true).where('lastActivity','==',yesterday).limit(100).get();
-let sent = 0, failed = 0;
-for (const candidate of eligible.docs) {
-  const profile = candidate.ref;
-  const marker = db.doc(`recordatoriosRacha/${candidate.id}`);
-  try {
-    const user = await auth.getUser(candidate.id);
-    if (user.disabled || !user.emailVerified || !user.email) continue;
-    const streak = await db.runTransaction(async tx => {
-      const [p,m] = await Promise.all([tx.get(profile),tx.get(marker)]);
-      const data = p.data();
-      if (data?.streakReminder !== true || data.lastActivity !== yesterday ||
-          !Number.isSafeInteger(data.streak) || data.streak < 1 || m.data()?.day === today) return 0;
-      tx.set(marker,{day:today,status:'pending'});
-      return data.streak;
-    });
-    if (!streak) continue;
-    await mail.sendMail({
-      from: { name:'SingAI',address:SMTP_USER }, to:user.email,
-      subject:'Tu racha de SingAI sigue viva',
-      text:`Llevas ${streak} ${streak === 1 ? 'día' : 'días'} de racha. Completa una lección hoy para mantenerla: https://singai.web.app/\n\nPuedes desactivar estos avisos en Mi perfil.`
-    });
-    await marker.update({status:'sent'});
-    sent++;
-  } catch (error) { failed++; console.error('Recordatorio no completado:',error.code || error.name); }
-}
-console.log(`Recordatorios enviados: ${sent}; incidencias: ${failed}.`);
-if (failed) process.exitCode = 1;
-}
+    const profile = (await db.doc(`profiles/${owner.uid}`).get()).data() ?? {};
+    const streak = [today,yesterday].includes(profile.lastActivity) ? Math.max(0,Number(profile.streak)||0) : 0;
+    const message = makeMessage(settings,streak,lesson?.title,profile.displayName || owner.displayName || 'estudiante');
+    if (pending?.state === 'pending') await testRef.update({state:'processing'});
+    await mail.sendMail({from:{name:'SingAI',address:SMTP_USER},to:owner.email,...message,subject:'[Prueba] ' + message.subject});
+    if (pending?.state === 'pending') await testRef.update({state:'sent'});
+    await status.set({test:'sent',testAt:new Date().toISOString()},{merge:true});
+    console.log('Gmail aceptó la prueba para el administrador.');
+    if (manual) process.exit(0);
+  }
+  if (!canSend(settings,hour,0,false) || (settings.reason === 'leccion' && !lesson)) process.exit(0);
+  const eligible = await db.collection('profiles').where('streakReminder','==',true)
+    .limit(100).get();
+  let sent=0,failed=0;
+  for (const candidate of eligible.docs) {
+    const profile = candidate.ref;
+    const marker = db.doc(`recordatoriosRacha/${candidate.id}`);
+    const lessonMarker = lesson && marker.collection('lecciones').doc(lesson.id);
+    try {
+      const before = candidate.data();
+      if (!lesson && (before.lastActivity !== yesterday || !(before.streak > 0))) continue;
+      const user = await auth.getUser(candidate.id);
+      if (user.disabled || !user.emailVerified || !user.email) continue;
+      const data = await db.runTransaction(async tx => {
+        const [p,m,l,progress,cfg] = await Promise.all([tx.get(profile),tx.get(marker),lessonMarker && tx.get(lessonMarker),
+          lesson && tx.get(profile.collection('progress').doc(lesson.id)),tx.get(db.doc('notificaciones/configuracion'))]);
+        if (!Object.entries(settings).every(([key,value]) => cfg.data()?.[key] === value)) return null;
+        const d = p.data(), previous=m.data(), count=previous?.day === today ? previous.count ?? 1 : 0;
+        if (d?.streakReminder !== true || !canSend(settings,hour,count,l?.exists || progress?.exists)
+          || (previous?.day === today && previous.hour === hour)
+          || (!lesson && (d.lastActivity !== yesterday || !(d.streak > 0)))) return null;
+        tx.set(marker,{day:today,hour,count:count+1});
+        if (lessonMarker) tx.set(lessonMarker,{day:today});
+        return d;
+      });
+      if (!data) continue;
+      const streak = [today,yesterday].includes(data.lastActivity) ? Math.max(0,Number(data.streak)||0) : 0;
+      await mail.sendMail({from:{name:'SingAI',address:SMTP_USER},to:user.email,...makeMessage(settings,streak,lesson?.title,data.displayName || user.displayName || 'estudiante')});
+      sent++;
+    } catch (error) { failed++; console.error('Aviso no completado:',error.code || error.name); }
+  }
+  await status.set({lastRun:new Date().toISOString(),sent,failed},{merge:true});
+  if (failed) process.exitCode=1;
+} catch (error) {
+  console.error('No se completó el envío:',error.code || error.name);
+  if (manual || pending?.state === 'pending') {
+    await status.set({test:'failed',testAt:new Date().toISOString(),error:error.code || error.name},{merge:true});
+    if (pending?.state === 'pending') await testRef.update({state:'failed'});
+  }
+  process.exitCode=1;
+} finally { mail.close(); }

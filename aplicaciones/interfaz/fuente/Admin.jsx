@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, X } from 'lucide-react';
 import SignVideo from './SignVideo.jsx';
+import Notifications from './Notifications.jsx';
 import { adminApi, adminReset } from './api.js';
 import './admin.css';
 
@@ -58,6 +59,7 @@ export default function Admin({ catalog, onPublish, owner }) {
       <button className="button secondary" aria-pressed={tab === 'contenido'} disabled={busy} onClick={() => setTab('contenido')}>Contenido</button>
       <button className="button secondary" aria-pressed={tab === 'usuarios'} disabled={busy} onClick={() => setTab('usuarios')}>Usuarios</button>
       <button className="button secondary" aria-pressed={tab === 'historial'} disabled={busy} onClick={showHistory}>Historial del catálogo</button>
+      {owner && <button className="button secondary" aria-pressed={tab === 'notificaciones'} disabled={busy} onClick={() => setTab('notificaciones')}>Notificaciones</button>}
     </div>
     {notice && <p role={notice.error ? 'alert' : 'status'} className={notice.error ? 'notice' : 'notice success'}>{notice.text}</p>}
     {confirm && <div className="admin-confirm" role="alert">
@@ -135,8 +137,8 @@ export default function Admin({ catalog, onPublish, owner }) {
           })}>Cargar como borrador</button>
         </article>
       )}
-    </section> : <section className="admin-card">
-      <p className="muted">Los recordatorios se programan para las 6:17 p. m. de Guatemala, solo si la cuenta practicó ayer y aún no practica hoy. Cada estudiante puede desactivarlos en Mi perfil.</p>
+    </section> : tab === 'notificaciones' && owner ? <Notifications catalog={catalog}/> : <section className="admin-card">
+      <p className="muted">La frecuencia y el mensaje se ajustan en Notificaciones. Cada estudiante puede desactivar sus avisos en Mi perfil.</p>
       {field('Buscar entre las cuentas cargadas', query, setQuery, {type:'search'})}
       {users.filter(u => (u.email+' '+u.name).toLowerCase().includes(query.trim().toLowerCase())).map(user => <article className="admin-user" key={user.uid}>
         <div><strong>{user.name || user.email}</strong><div>{user.email}</div><small>{user.admin ? 'Administrador' : 'Estudiante'} · {user.disabled ? 'Desactivada' : 'Activa'} · {user.verified ? 'Correo verificado' : 'Correo sin verificar'}</small></div>
