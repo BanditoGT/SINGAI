@@ -80,10 +80,25 @@ app.post('/admin/video', express.raw({ type: 'video/mp4', limit: '20mb' }), asyn
   audit(req, 'video.upload', publicId);
   res.status(201).json({ video: result.secure_url });
 });
-const userView = u => ({ uid:u.uid, email:u.email ?? '', name:u.displayName ?? '', disabled:u.disabled, admin:u.customClaims?.admin === true, verified:u.emailVerified });
+const userView = (u, profile) => ({ uid:u.uid, email:u.email ?? '', name:u.displayName ?? '', disabled:u.disabled, admin:u.customClaims?.admin === true, verified:u.emailVerified, hasProfile:profile?.exists === true, streakReminder:profile?.data()?.streakReminder === true });
 app.get('/admin/users', async (req,res) => {
   const result = await auth.listUsers(100, typeof req.query.cursor === 'string' ? req.query.cursor : undefined);
-  res.json({ users: result.users.map(userView), cursor: result.pageToken ?? null });
+  const profiles = result.users.length ? await db.getAll(...result.users.map(user => db.doc(`profiles/${user.uid}`)), {fieldMask:['streakReminder']}) : [];
+  const byId = new Map(profiles.map(profile => [profile.id, profile]));
+  res.json({ users: result.users.map(user => userView(user, byId.get(user.uid))), cursor: result.pageToken ?? null });
+});
+app.patch('/admin/users/:uid/reminders', async (req,res) => {
+  const enabled = req.body?.enabled;
+  if (typeof enabled !== 'boolean') return res.sendStatus(400);
+  const user = await auth.getUser(req.params.uid);
+  if (enabled && (user.disabled || !user.emailVerified || !user.email)) return res.status(409).json({error:'La cuenta debe estar activa y tener correo verificado.'});
+  const profile = db.doc(`profiles/${user.uid}`);
+  await db.runTransaction(async tx => {
+    if (!(await tx.get(profile)).exists) throw Object.assign(new Error('La cuenta todavía no tiene perfil.'), {status:409});
+    tx.update(profile, {streakReminder:enabled});
+  });
+  audit(req, enabled ? 'reminders.enable' : 'reminders.disable', user.uid);
+  res.json(userView(user, await profile.get()));
 });
 app.patch('/admin/users/:uid', async (req,res) => {
   const user = await auth.getUser(req.params.uid);
@@ -100,7 +115,7 @@ app.patch('/admin/users/:uid', async (req,res) => {
     await auth.revokeRefreshTokens(user.uid);
   } else return res.status(400).json({ error:'Acción inválida.' });
   audit(req, disabled === undefined ? 'user.role' : 'user.disabled', user.uid);
-  res.json(userView(await auth.getUser(user.uid)));
+  res.json(userView(await auth.getUser(user.uid), await db.doc(`profiles/${user.uid}`).get()));
 });
 app.delete('/admin/users/:uid', async (req,res) => {
   const user = await auth.getUser(req.params.uid);

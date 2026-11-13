@@ -115,9 +115,13 @@ export default function Admin({ catalog, onPublish, owner }) {
       </div>
       </fieldset>
     </form> : tab === 'historial' ? <section className="admin-card">
-      <h2>Versiones anteriores</h2>
-      <p>Se muestran las últimas 20 versiones guardadas. Puedes cargar una como borrador y revisarla antes de publicar. Esto reemplaza el borrador completo, pero no cambia los videos ni el progreso guardado.</p>
-      {busy ? <p role="status">Cargando…</p> : !versions.length ? <p>No hay versiones guardadas todavía.</p> : versions.map(version =>
+      <h2>Recuperar contenido del catálogo</h2>
+      <ol>
+        <li>Al publicar cambios, guardamos una copia del catálogo anterior. Quitar una seña no borra su archivo de video.</li>
+        <li>Elige una copia y pulsa «Cargar como borrador». Esto reemplaza tu borrador actual con el catálogo completo de esa fecha.</li>
+        <li>Revisa el borrador y pulsa «Publicar catálogo» para que lo vean los estudiantes. El progreso guardado no se modifica.</li>
+      </ol>
+      {busy ? <p role="status">Cargando…</p> : !versions.length ? <p><strong>Todavía no hay copias.</strong> Aparecerá la primera cuando publiques un cambio desde Contenido.</p> : versions.map(version =>
         <article className="admin-user" key={version.revision}>
           <strong>Versión {version.revision} · {version.totalSigns} señas</strong>
           <p>{new Date(version.archivedAt).toLocaleString('es-GT', {timeZone:'America/Guatemala'})}</p>
@@ -132,10 +136,18 @@ export default function Admin({ catalog, onPublish, owner }) {
         </article>
       )}
     </section> : <section className="admin-card">
+      <p className="muted">Los recordatorios se programan para las 6:17 p. m. de Guatemala, solo si la cuenta practicó ayer y aún no practica hoy. Cada estudiante puede desactivarlos en Mi perfil.</p>
       {field('Buscar entre las cuentas cargadas', query, setQuery, {type:'search'})}
       {users.filter(u => (u.email+' '+u.name).toLowerCase().includes(query.trim().toLowerCase())).map(user => <article className="admin-user" key={user.uid}>
         <div><strong>{user.name || user.email}</strong><div>{user.email}</div><small>{user.admin ? 'Administrador' : 'Estudiante'} · {user.disabled ? 'Desactivada' : 'Activa'} · {user.verified ? 'Correo verificado' : 'Correo sin verificar'}</small></div>
         <div className="admin-actions">
+          {user.hasProfile && <button aria-pressed={user.streakReminder} disabled={busy || !!confirm || (!user.streakReminder && (user.disabled || !user.verified))} onClick={() => setConfirm({
+            text:`${user.streakReminder ? 'Desactivar' : 'Activar'} recordatorios de racha para ${user.email}`,
+            action: () => run(async () => {
+              const result = await adminApi('/users/' + encodeURIComponent(user.uid) + '/reminders', {method:'PATCH', data:{enabled:!user.streakReminder}});
+              setUsers(list => list.map(item => item.uid === user.uid ? result : item));
+            }, 'Preferencia de recordatorios guardada.')
+          })}>Recordatorios: {user.streakReminder ? 'activados' : 'desactivados'}</button>}
           <button disabled={busy || !!confirm || !user.email} onClick={() => setConfirm({text:`Enviar un correo de restablecimiento a ${user.email}`, action: () => run(() => adminReset(user.email), 'Solicitud de restablecimiento enviada.')})}>Restablecer contraseña</button>
           <button disabled={busy || !!confirm} onClick={() => changeUser(user, {disabled:!user.disabled}, user.disabled ? 'Reactivar cuenta' : 'Desactivar cuenta')}>{user.disabled ? 'Reactivar' : 'Desactivar'}</button>
           {owner && <button disabled={busy || !!confirm} onClick={() => changeUser(user, {admin:!user.admin}, user.admin ? 'Quitar rol de administrador' : 'Asignar rol de administrador')}>{user.admin ? 'Quitar rol' : 'Hacer administrador'}</button>}
