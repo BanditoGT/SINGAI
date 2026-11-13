@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: singai-administracion
+    runtime: node
+    plan: free
+    branch: main
+    autoDeployTrigger: off
+    buildCommand: pnpm install --frozen-lockfile
+    startCommand: pnpm --filter @singai/administracion start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: FIREBASE_ADMIN_JSON
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

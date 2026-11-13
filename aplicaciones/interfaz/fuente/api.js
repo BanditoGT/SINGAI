@@ -25,6 +25,26 @@ auth.languageCode = 'es';
 const db = getFirestore(firebaseApp);
 const persistenceReady = setPersistence(auth, browserSessionPersistence).catch(() => {});
 const USE_LOCAL_SERVICES = import.meta.env.VITE_USE_LOCAL_SERVICES === 'true';
+const ADMIN_URL = import.meta.env.VITE_ADMIN_API_URL?.replace(/\/$/, '');
+export async function adminApi(path, { method = 'GET', data, file } = {}) {
+  if (!ADMIN_URL) throw new Error('El servidor de administración aún no está conectado.');
+  const user = await currentUser();
+  const response = await fetch(ADMIN_URL + '/admin' + path, {
+    method,
+    headers: { Authorization: 'Bearer ' + await user.getIdToken(), ...(file || data ? { 'Content-Type': file ? 'video/mp4' : 'application/json' } : {}) },
+    body: file ?? (data ? JSON.stringify(data) : undefined),
+    signal: AbortSignal.timeout(100_000)
+  });
+  if (response.status === 204) return null;
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || (response.status === 403 ? 'No tienes permiso para esta acción.' : 'No se pudo completar la operación.'));
+  return payload;
+}
+export async function adminReset(email) {
+  const user = await currentUser();
+  if ((await user.getIdTokenResult(true)).claims.admin !== true) throw new Error('No tienes permiso para esta acción.');
+  await sendPasswordResetEmail(auth, email, { url: location.origin });
+}
 export const securityMode = USE_LOCAL_SERVICES ? 'codigo-correo' : 'firebase-gratuito';
 
 export const MEDIA_URL = '';
@@ -176,7 +196,8 @@ async function authApi(path, body) {
     if (path === '/auth/me') {
       const user = await currentUser(); await user.reload();
       if (!user.emailVerified) throw new Error('Debes verificar tu correo antes de entrar.');
-      return { user: publicUser(user) };
+      const claims = ADMIN_URL ? (await user.getIdTokenResult(true)).claims : {};
+      return { user: { ...publicUser(user), admin: claims.admin === true, owner: claims.owner === true } };
     }
   } catch (error) { throw new Error(authMessage(error)); }
   throw new Error('Operación de autenticación no disponible.');
@@ -305,6 +326,8 @@ export async function api(path, options = {}) {
   if (path.startsWith('/security/')) return securityApi(path);
   if (path.startsWith('/social')) return socialApi(path, method, body);
   if (path === '/catalog') {
+    const published = await getDoc(doc(db, 'catalogo', 'publicado')).catch(() => null);
+    if (published?.exists()) return published.data();
     const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     const response = await fetch(isLocal ? '/api/catalog' : '/catalog.json');
     if (!response.ok) throw new Error('No fue posible cargar el catálogo.');

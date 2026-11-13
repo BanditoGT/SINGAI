@@ -5,6 +5,11 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email_verified == true;
     }
 
+    match /catalogo/publicado {
+      allow get: if verifiedUser();
+      allow list, write: if false;
+    }
+
     match /profiles/{userId} {
       allow create: if request.auth != null && request.auth.uid == userId;
       allow read, update: if verifiedUser() && request.auth.uid == userId;
