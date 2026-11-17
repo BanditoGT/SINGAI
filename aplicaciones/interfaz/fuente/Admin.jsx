@@ -23,6 +23,7 @@ export default function Admin({ catalog, onPublish, owner }) {
   const [confirm, setConfirm] = useState(null);
   const [reminderUser, setReminderUser] = useState(null);
   const [deliveryRefresh,setDeliveryRefresh] = useState(0);
+  const [manualDelivery,setManualDelivery] = useState(null);
   const [versions, setVersions] = useState([]);
   const [preview, setPreview] = useState(null);
   const dialog = useRef(null);
@@ -36,6 +37,20 @@ export default function Admin({ catalog, onPublish, owner }) {
     try { await fn(); if (message) setNotice({ text: message }); }
     catch (error) { setNotice({ text: error.message, error: true }); }
     finally { setBusy(false); }
+  }
+  async function sendReminderNow(user) {
+    setBusy(true); setNotice(null);
+    setManualDelivery({ uid:user.uid, state:'processing', text:'Enviando el correo ahora…' });
+    try {
+      const result=await adminApi('/notifications/test',{method:'POST',data:{uid:user.uid}});
+      if(result?.sent!==true) throw new Error('El servidor no confirmó la entrega del correo.');
+      setManualDelivery({ uid:user.uid, state:'sent', text:'Correo enviado. Si no aparece en Recibidos, revisa Spam o Correo no deseado.' });
+      setNotice({text:'Correo enviado correctamente.'});
+      setDeliveryRefresh(n=>n+1);
+    } catch(error) {
+      setManualDelivery({ uid:user.uid, state:'failed', text:error.message });
+      setNotice({text:error.message,error:true});
+    } finally { setBusy(false); }
   }
   const loadUsers = (next = null) => run(async () => {
     const result = await adminApi('/users' + (next ? '?cursor=' + encodeURIComponent(next) : ''));
@@ -170,13 +185,12 @@ export default function Admin({ catalog, onPublish, owner }) {
             const saved=await adminApi('/users/'+encodeURIComponent(reminderUser.uid)+'/reminders',{method:'PATCH',data:{enabled:reminderUser.streakReminder,hour:reminderUser.reminderHour ?? null}});
             setUsers(list=>list.map(u=>u.uid===saved.uid?saved:u));setReminderUser(null);
           },'Horario guardado.')}>Guardar horario</button>
-          {owner && <button disabled={busy || !reminderUser.streakReminder || reminderUser.disabled || !reminderUser.verified} onClick={()=>setConfirm({
-            text:'Enviar un correo ahora a '+reminderUser.email,
-            action:()=>run(async()=>{const result=await adminApi('/notifications/test',{method:'POST',data:{uid:reminderUser.uid}});if(result?.sent!==true)throw new Error('El servidor de correo todavía se está actualizando. Inténtalo nuevamente en unos minutos.');setDeliveryRefresh(n=>n+1);},'Correo enviado correctamente.')
-          })}>Enviar correo ahora</button>}
+          {owner && <button disabled={busy || !reminderUser.streakReminder || reminderUser.disabled || !reminderUser.verified} onClick={()=>sendReminderNow(reminderUser)}>Enviar correo ahora</button>}
           <button onClick={()=>setReminderUser(null)}>Cerrar</button>
         </div>
-        {owner && <ReminderDelivery uid={user.uid} refresh={deliveryRefresh}/>}
+        {owner && manualDelivery?.uid===user.uid
+          ? <p className={manualDelivery.state==='sent'?'notice success':manualDelivery.state==='failed'?'notice':'muted'} role="status">{manualDelivery.text}</p>
+          : <ReminderDelivery uid={user.uid} refresh={deliveryRefresh}/>}
       </div>}
       </article>)}
       {cursor && <button disabled={busy || !!confirm} onClick={() => loadUsers(cursor)}>Cargar más cuentas</button>}

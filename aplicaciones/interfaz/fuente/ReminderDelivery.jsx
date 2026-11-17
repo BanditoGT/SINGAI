@@ -2,7 +2,7 @@ import React, {useEffect,useState} from 'react';
 import {adminApi} from './api.js';
 
 const messages = {
-  pending:'El correo está esperando el siguiente proceso automático.',
+  pending:'Hay una solicitud anterior sin completar. Pulsa “Enviar correo ahora” para realizar un envío inmediato.',
   processing:'Estamos enviando el correo ahora…',
   sent:'Gmail aceptó el correo. Si no aparece en Recibidos, revisa Spam.',
   failed:'No se pudo enviar el correo. Revisa la configuración del remitente e inténtalo de nuevo.'
@@ -17,7 +17,7 @@ export default function ReminderDelivery({uid,refresh=0}) {
         const result=await adminApi('/notifications/delivery'+(uid?'?uid='+encodeURIComponent(uid):''));
         if (stopped) return;
         setState(result.state);
-        if (['pending','processing'].includes(result.state)) timer=setTimeout(load,30000);
+        if (result.state==='processing') timer=setTimeout(load,3000);
       } catch { if (!stopped) setState('unavailable'); }
     };
     load();
