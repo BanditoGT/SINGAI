@@ -49,10 +49,32 @@ app.use(express.json({ limit: '750kb' }));
 const audit = (req, action, target) => console.info(JSON.stringify({ action, target, actor: req.actor.uid, date: new Date().toISOString() }));
 const notificationSettings = db.doc('notificaciones/configuracion');
 const smtpUser = String(process.env.SMTP_USER || '').trim().toLowerCase();
+const gmailSender = String(process.env.GMAIL_SENDER || smtpUser).trim().toLowerCase();
+const gmailOauth = {
+  clientId:String(process.env.GMAIL_CLIENT_ID || '').trim(),
+  clientSecret:String(process.env.GMAIL_CLIENT_SECRET || '').trim(),
+  refreshToken:String(process.env.GMAIL_REFRESH_TOKEN || '').trim()
+};
+const gmailApiReady = gmailSender && Object.values(gmailOauth).every(Boolean);
 const immediateMail = smtpUser && process.env.SMTP_PASS ? nodemailer.createTransport({
   service:'gmail', auth:{user:smtpUser,pass:process.env.SMTP_PASS},
   connectionTimeout:10000, socketTimeout:15000
 }) : null;
+async function sendWithGmailApi({to,subject,text}) {
+  const tokenResponse=await fetch('https://oauth2.googleapis.com/token',{
+    method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({client_id:gmailOauth.clientId,client_secret:gmailOauth.clientSecret,refresh_token:gmailOauth.refreshToken,grant_type:'refresh_token'})
+  });
+  const token=await tokenResponse.json().catch(()=>({}));
+  if(!tokenResponse.ok || !token.access_token) throw Object.assign(new Error('Google no pudo autorizar la cuenta remitente. Vuelve a conectarla desde Administración.'),{status:503});
+  const encodedSubject=Buffer.from(subject,'utf8').toString('base64');
+  const mime=[`From: SingAI <${gmailSender}>`,`To: ${to}`,`Subject: =?UTF-8?B?${encodedSubject}?=`,'MIME-Version: 1.0','Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: 8bit','',text].join('\r\n');
+  const response=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
+    method:'POST',headers:{authorization:`Bearer ${token.access_token}`,'content-type':'application/json'},
+    body:JSON.stringify({raw:Buffer.from(mime,'utf8').toString('base64url')})
+  });
+  if(!response.ok) throw Object.assign(new Error('Gmail rechazó el envío. Revisa la autorización de la cuenta remitente.'),{status:502});
+}
 app.use('/admin/notifications', (req,res,next) => req.actor.customClaims?.owner === true ? next() : res.sendStatus(403));
 app.get('/admin/notifications', async (_req,res) => {
   const [settings,status] = await Promise.all([notificationSettings.get(), db.doc('notificaciones/estado').get()]);
@@ -76,7 +98,7 @@ app.post('/admin/notifications/test', async (req,res) => {
       (uid !== req.actor.uid && (await db.doc(`profiles/${uid}`).get()).data()?.streakReminder !== true)) {
     return res.status(409).json({error:'El destinatario debe tener correo verificado y sus recordatorios activados.'});
   }
-  if (!immediateMail) return res.status(503).json({error:'El envío inmediato todavía no tiene configurada la cuenta de Gmail en Render.'});
+  if (!gmailApiReady && !immediateMail) return res.status(503).json({error:'El envío inmediato todavía no tiene configurada la cuenta de Gmail en Render.'});
   const ref = db.doc(`recordatoriosManuales/${uid}`);
   await db.runTransaction(async tx => {
     const previous = (await tx.get(ref)).data();
@@ -89,19 +111,21 @@ app.post('/admin/notifications/test', async (req,res) => {
       notificationSettings.get(), db.doc(`profiles/${uid}`).get(), catalog.get()
     ]);
     const settings = settingsSnapshot.data() ?? defaults;
-    if (settings.sender && settings.sender !== smtpUser) throw Object.assign(new Error('El Gmail configurado en Recordatorios no coincide con el remitente de Render.'),{status:409});
+    if (settings.sender && settings.sender !== (gmailApiReady ? gmailSender : smtpUser)) throw Object.assign(new Error('El Gmail configurado en Recordatorios no coincide con el remitente de Render.'),{status:409});
     const profile = profileSnapshot.data() ?? {};
     const today = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guatemala',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     const yesterday = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guatemala',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Date.now()-86400000));
     const streak = [today,yesterday].includes(profile.lastActivity) ? Math.max(0,Number(profile.streak)||0) : 0;
     const lesson = settings.reason === 'leccion' ? (catalogSnapshot.data() ?? original).units.flatMap(unit=>unit.lessons).find(item=>item.id===settings.lessonId) : null;
     const message = makeMessage(settings,streak,lesson?.title,profile.displayName || target.displayName || 'estudiante');
-    await immediateMail.sendMail({from:{name:'SingAI',address:smtpUser},to:target.email,...message});
+    if(gmailApiReady) await sendWithGmailApi({to:target.email,...message});
+    else await immediateMail.sendMail({from:{name:'SingAI',address:smtpUser},to:target.email,...message});
     await ref.set({uid,state:'sent',requestedAt:Date.now(),finishedAt:Date.now()},{merge:true});
     audit(req,'notifications.send-now',uid);
     res.json({sent:true,state:'sent'});
   } catch (error) {
     await ref.set({uid,state:'failed',finishedAt:Date.now()},{merge:true});
+    if(error?.code==='ETIMEDOUT') throw Object.assign(new Error('Render bloqueó la conexión SMTP. Conecta Gmail mediante HTTPS para enviar sin cambiar de plan.'),{status:503});
     throw error;
   }
 });
