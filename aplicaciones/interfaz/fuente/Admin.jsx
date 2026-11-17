@@ -172,7 +172,7 @@ export default function Admin({ catalog, onPublish, owner }) {
           },'Horario guardado.')}>Guardar horario</button>
           {owner && <button disabled={busy || !reminderUser.streakReminder || reminderUser.disabled || !reminderUser.verified} onClick={()=>setConfirm({
             text:'Enviar un correo ahora a '+reminderUser.email,
-            action:()=>run(async()=>{await adminApi('/notifications/test',{method:'POST',data:{uid:reminderUser.uid}});setDeliveryRefresh(n=>n+1);},'Correo enviado correctamente.')
+            action:()=>run(async()=>{const result=await adminApi('/notifications/test',{method:'POST',data:{uid:reminderUser.uid}});if(result?.sent!==true)throw new Error('El servidor de correo todavía se está actualizando. Inténtalo nuevamente en unos minutos.');setDeliveryRefresh(n=>n+1);},'Correo enviado correctamente.')
           })}>Enviar correo ahora</button>}
           <button onClick={()=>setReminderUser(null)}>Cerrar</button>
         </div>
