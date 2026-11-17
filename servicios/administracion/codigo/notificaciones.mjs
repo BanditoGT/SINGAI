@@ -18,7 +18,7 @@ export function validateSettings(input) {
 }
 export function makeMessage(settings, streak, lessonTitle = '', name = 'estudiante') {
   const values = {nombre:name, racha:streak > 0 ? `Llevas ${streak} ${streak === 1 ? 'día' : 'días'} de racha. ¡Sigue así!` : '', leccion:lessonTitle ? `Te recomendamos la lección «${lessonTitle}».` : '', enlace:'https://singai.web.app/'};
-  const render = value => value.replace(/\{\{(racha|leccion|enlace)\}\}/g, (_,key) => values[key]);
+  const render = value => value.replace(/\{\{(nombre|racha|leccion|enlace)\}\}/g, (_,key) => values[key]);
   const body = render(settings.body);
   return {subject:render(settings.subject).replace(/[\r\n]/g,' ').trim() || defaults.subject,text:body + (body.includes(values.enlace) ? '' : '\n\n' + values.enlace) + '\n\nPuedes desactivar estos avisos en Mi perfil.'};
 }

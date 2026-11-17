@@ -2,8 +2,8 @@ import React, {useEffect,useState} from 'react';
 import {adminApi} from './api.js';
 
 const messages = {
-  pending:'Solicitud guardada. El correo se intentará enviar en la próxima hora en punto. Puede tardar unos minutos más.',
-  processing:'Estamos enviando el correo…',
+  pending:'El correo está esperando el siguiente proceso automático.',
+  processing:'Estamos enviando el correo ahora…',
   sent:'Gmail aceptó el correo. Si no aparece en Recibidos, revisa Spam.',
   failed:'No se pudo enviar el correo. Revisa la configuración del remitente e inténtalo de nuevo.'
 };

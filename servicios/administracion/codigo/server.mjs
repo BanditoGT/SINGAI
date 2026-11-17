@@ -1,4 +1,5 @@
 import express from 'express';
+import nodemailer from 'nodemailer';
 import { v2 as cloudinary } from 'cloudinary';
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -6,7 +7,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { validarCatalogo } from './catalogo.mjs';
-import { defaults, validateSettings } from './notificaciones.mjs';
+import { defaults, makeMessage, validateSettings } from './notificaciones.mjs';
 
 const projectId = 'singai-seminario-2026-gt';
 const credential = JSON.parse(process.env.FIREBASE_ADMIN_JSON || '{}');
@@ -47,6 +48,11 @@ app.use('/admin', async (req,res,next) => {
 app.use(express.json({ limit: '750kb' }));
 const audit = (req, action, target) => console.info(JSON.stringify({ action, target, actor: req.actor.uid, date: new Date().toISOString() }));
 const notificationSettings = db.doc('notificaciones/configuracion');
+const smtpUser = String(process.env.SMTP_USER || '').trim().toLowerCase();
+const immediateMail = smtpUser && process.env.SMTP_PASS ? nodemailer.createTransport({
+  service:'gmail', auth:{user:smtpUser,pass:process.env.SMTP_PASS},
+  connectionTimeout:10000, socketTimeout:15000
+}) : null;
 app.use('/admin/notifications', (req,res,next) => req.actor.customClaims?.owner === true ? next() : res.sendStatus(403));
 app.get('/admin/notifications', async (_req,res) => {
   const [settings,status] = await Promise.all([notificationSettings.get(), db.doc('notificaciones/estado').get()]);
@@ -70,14 +76,34 @@ app.post('/admin/notifications/test', async (req,res) => {
       (uid !== req.actor.uid && (await db.doc(`profiles/${uid}`).get()).data()?.streakReminder !== true)) {
     return res.status(409).json({error:'El destinatario debe tener correo verificado y sus recordatorios activados.'});
   }
+  if (!immediateMail) return res.status(503).json({error:'El envío inmediato todavía no tiene configurada la cuenta de Gmail en Render.'});
   const ref = db.doc(`recordatoriosManuales/${uid}`);
   await db.runTransaction(async tx => {
     const previous = (await tx.get(ref)).data();
-    if (previous?.state === 'pending' || (previous?.state === 'processing' && Date.now() - previous.requestedAt < 2*3600000)) throw Object.assign(new Error('Este correo ya está pendiente. No necesitas solicitarlo otra vez.'),{status:409});
+    if (previous?.state === 'processing' && Date.now() - previous.requestedAt < 120000) throw Object.assign(new Error('El correo ya se está enviando.'),{status:409});
     if (previous?.state === 'sent' && Date.now() - (previous?.finishedAt ?? 0) < 300000) throw Object.assign(new Error('Acabamos de enviarle un correo. Espera cinco minutos antes de repetirlo.'),{status:409});
-    tx.set(ref,{uid,requestedAt:Date.now(),state:'pending'});
+    tx.set(ref,{uid,requestedAt:Date.now(),state:'processing'});
   });
-  res.status(202).json({queued:true});
+  try {
+    const [settingsSnapshot,profileSnapshot,catalogSnapshot] = await Promise.all([
+      notificationSettings.get(), db.doc(`profiles/${uid}`).get(), catalog.get()
+    ]);
+    const settings = settingsSnapshot.data() ?? defaults;
+    if (settings.sender && settings.sender !== smtpUser) throw Object.assign(new Error('El Gmail configurado en Recordatorios no coincide con el remitente de Render.'),{status:409});
+    const profile = profileSnapshot.data() ?? {};
+    const today = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guatemala',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    const yesterday = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guatemala',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Date.now()-86400000));
+    const streak = [today,yesterday].includes(profile.lastActivity) ? Math.max(0,Number(profile.streak)||0) : 0;
+    const lesson = settings.reason === 'leccion' ? (catalogSnapshot.data() ?? original).units.flatMap(unit=>unit.lessons).find(item=>item.id===settings.lessonId) : null;
+    const message = makeMessage(settings,streak,lesson?.title,profile.displayName || target.displayName || 'estudiante');
+    await immediateMail.sendMail({from:{name:'SingAI',address:smtpUser},to:target.email,...message});
+    await ref.set({uid,state:'sent',requestedAt:Date.now(),finishedAt:Date.now()},{merge:true});
+    audit(req,'notifications.send-now',uid);
+    res.json({sent:true,state:'sent'});
+  } catch (error) {
+    await ref.set({uid,state:'failed',finishedAt:Date.now()},{merge:true});
+    throw error;
+  }
 });
 app.get('/admin/notifications/delivery', async (req,res) => {
   const uid = req.query.uid ?? req.actor.uid;
@@ -168,7 +194,7 @@ app.delete('/admin/users/:uid', async (req,res) => {
   res.sendStatus(204);
 });
 app.use((err,_req,res,_next) => {
-  const status = err.status === 413 ? 413 : [400,409].includes(err.status) ? err.status : err.code === 'auth/user-not-found' ? 404 : 500;
+  const status = err.status === 413 ? 413 : [400,409,502,503].includes(err.status) ? err.status : err.code === 'auth/user-not-found' ? 404 : 500;
   if (status === 500) console.error('Administración:',err.code || err.name);
   res.status(status).json({ error: status === 413 ? 'El archivo excede el tamaño permitido.' : status === 404 ? 'Cuenta no encontrada.' : status === 500 ? 'No se pudo completar la operación.' : err.message });
 });

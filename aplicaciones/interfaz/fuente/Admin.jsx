@@ -171,9 +171,9 @@ export default function Admin({ catalog, onPublish, owner }) {
             setUsers(list=>list.map(u=>u.uid===saved.uid?saved:u));setReminderUser(null);
           },'Horario guardado.')}>Guardar horario</button>
           {owner && <button disabled={busy || !reminderUser.streakReminder || reminderUser.disabled || !reminderUser.verified} onClick={()=>setConfirm({
-            text:'Solicitar un correo para '+reminderUser.email,
-            action:()=>run(async()=>{await adminApi('/notifications/test',{method:'POST',data:{uid:reminderUser.uid}});setDeliveryRefresh(n=>n+1);})
-          })}>Solicitar envío individual</button>}
+            text:'Enviar un correo ahora a '+reminderUser.email,
+            action:()=>run(async()=>{await adminApi('/notifications/test',{method:'POST',data:{uid:reminderUser.uid}});setDeliveryRefresh(n=>n+1);},'Correo enviado correctamente.')
+          })}>Enviar correo ahora</button>}
           <button onClick={()=>setReminderUser(null)}>Cerrar</button>
         </div>
         {owner && <ReminderDelivery uid={user.uid} refresh={deliveryRefresh}/>}
