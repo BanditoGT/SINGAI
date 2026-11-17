@@ -25,7 +25,7 @@ auth.languageCode = 'es';
 const db = getFirestore(firebaseApp);
 const persistenceReady = setPersistence(auth, browserSessionPersistence).catch(() => {});
 const USE_LOCAL_SERVICES = import.meta.env.VITE_USE_LOCAL_SERVICES === 'true';
-const ADMIN_URL = import.meta.env.VITE_ADMIN_API_URL?.replace(/\/$/, '');
+const ADMIN_URL = (import.meta.env.VITE_ADMIN_API_URL || 'https://singai-administracion.onrender.com').replace(/\/$/, '');
 export async function adminApi(path, { method = 'GET', data, file } = {}) {
   if (!ADMIN_URL) throw new Error('El servidor de administración aún no está conectado.');
   const user = await currentUser();
